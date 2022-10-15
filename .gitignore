@@ -132,3 +132,4 @@ dmypy.json
 **/Thumbs.db
 datasets/iot_23/
 datasets/mqtt_iot_ids2020/
+sequential-noencoding-*
