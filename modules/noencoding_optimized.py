@@ -49,6 +49,32 @@ def calculate_score(metric_name, labels, y_test, y_pred):
         raise ValueError('Invalid metric name.')
 
 
+OPTUNA_EARLY_STOPING = 10
+
+class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
+    early_stop = OPTUNA_EARLY_STOPING
+    early_stop_count = 0
+    best_score = None
+
+
+def early_stopping(study, trial):
+    if EarlyStoppingExceeded.best_score == None:
+      EarlyStoppingExceeded.best_score = study.best_value
+
+    if study.best_value < EarlyStoppingExceeded.best_score:
+        EarlyStoppingExceeded.best_score = study.best_value
+        EarlyStoppingExceeded.early_stop_count = 0
+    else:
+      if EarlyStoppingExceeded.early_stop_count > EarlyStoppingExceeded.early_stop:
+            EarlyStoppingExceeded.early_stop_count = 0
+            best_score = None
+            raise EarlyStoppingExceeded()
+      else:
+            EarlyStoppingExceeded.early_stop_count=EarlyStoppingExceeded.early_stop_count+1
+    # print(f'EarlyStop counter: {EarlyStoppingExceeded.early_stop_count}, Best score: {study.best_value} and {EarlyStoppingExceeded.best_score}')
+    return
+
+
 # In[3]:
 
 
@@ -173,8 +199,10 @@ for classifier_name in CLASSIFIER_NAMES:
         else:
             n_jobs = n_parallel
 
-        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, catch=(ValueError,), gc_after_trial=True)        
+        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, callbacks=[early_stopping], catch=(ValueError,), gc_after_trial=True)        
 
+    except EarlyStoppingExceeded:
+        print(f'EarlyStopping exceeded for {classifier_name}; no new best scores on iters {OPTUNA_EARLY_STOPING}.')
     except Exception as e:
         print(f"Study with classifier {classifier_name} failed. Reason: {e}")
     print(f"Study optimization finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
