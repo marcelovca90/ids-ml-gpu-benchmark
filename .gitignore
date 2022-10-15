@@ -56,7 +56,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -127,3 +126,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Other
+**/.DS_Store
+**/Thumbs.db
+datasets/iot_23/
+datasets/mqtt_iot_ids2020/
