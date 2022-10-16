@@ -23,17 +23,17 @@ from model_suggester import CLASSIFIER_NAMES, get_baseline_suggestion
 # In[2]:
 
 
-QUICK_RUN   = False
-SEED        = 10
-N_JOBS      = 1
-N_TRIALS    = 1
-TIMEOUT     = None
-FILE_PREFIX = 'sequential-noencoding-baseline'
-folder_name = 'filtered_by_label'
-limit_rows  = None
-n_cpus      = os.cpu_count()
-n_parallel  = int(n_cpus) - 2
-uuid        = str(uuid.uuid4())[:8]
+QUICK_RUN      = False
+SEED           = 10
+N_JOBS         = 1
+N_TRIALS       = 1
+TIMEOUT        = None
+FILE_PREFIX    = 'sequential-noencoding-baseline'
+DATASET_FOLDER = '../datasets/mqtt_iot_ids2020/'
+limit_rows     = None
+n_cpus         = os.cpu_count()
+n_parallel     = int(n_cpus) - 2
+uuid           = str(uuid.uuid4())[:8]
 
 
 def calculate_score(metric_name, labels, y_test, y_pred):
@@ -60,19 +60,19 @@ print(f"Sequential-NoEncoding-Baseline.py - Execution started at {datetime.now()
 # In[4]:
 
 def load_mappings(filename='mappings.json'):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     with open(full_filename, 'r') as fp:
         return json.load(fp)
 
 def load_csv(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     df = pd.read_csv(filepath_or_buffer=full_filename).infer_objects().to_numpy()
     return df.ravel() if df.shape[1] == 1 else df
     
 def load_hdf(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     df = pd.read_hdf(path_or_buf=full_filename).infer_objects().to_numpy()
     return df.ravel() if df.shape[1] == 1 else df

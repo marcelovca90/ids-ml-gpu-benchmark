@@ -23,15 +23,15 @@ from model_suggester import CLASSIFIER_NAMES, get_optimized_suggestion
 # In[2]:
 
 
-QUICK_RUN   = False
-N_TRIALS    = 100
-TIMEOUT     = 60*60*4
-FILE_PREFIX = 'sequential-noencoding-optimized'
-folder_name = 'filtered_by_label'
-limit_rows  = None
-n_cpus      = os.cpu_count()
-n_parallel  = int(n_cpus) - 2
-uuid        = str(uuid.uuid4())[:8]
+QUICK_RUN      = False
+N_TRIALS       = 100
+TIMEOUT        = 60*60*4
+FILE_PREFIX    = 'sequential-noencoding-optimized'
+DATASET_FOLDER = '../datasets/mqtt_iot_ids2020/'
+limit_rows      = None
+n_cpus          = os.cpu_count()
+n_parallel      = int(n_cpus / 2)
+uuid            = str(uuid.uuid4())[:8]
 
 
 def calculate_score(metric_name, labels, y_test, y_pred):
@@ -67,7 +67,7 @@ def early_stopping(study, trial):
     else:
       if EarlyStoppingExceeded.early_stop_count > EarlyStoppingExceeded.early_stop:
             EarlyStoppingExceeded.early_stop_count = 0
-            best_score = None
+            EarlyStoppingExceeded.best_score = None
             raise EarlyStoppingExceeded()
       else:
             EarlyStoppingExceeded.early_stop_count=EarlyStoppingExceeded.early_stop_count+1
@@ -84,19 +84,19 @@ print(f"Sequential-NoEncoding-Optimized.py - Execution started at {datetime.now(
 # In[4]:
 
 def load_mappings(filename='mappings.json'):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     with open(full_filename, 'r') as fp:
         return json.load(fp)
 
 def load_csv(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     df = pd.read_csv(filepath_or_buffer=full_filename).infer_objects().to_numpy()
     return df.ravel() if df.shape[1] == 1 else df
     
 def load_hdf(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
     full_filename = os.path.join(base_folder, filename)
     df = pd.read_hdf(path_or_buf=full_filename).infer_objects().to_numpy()
     return df.ravel() if df.shape[1] == 1 else df
@@ -199,7 +199,7 @@ for classifier_name in CLASSIFIER_NAMES:
         else:
             n_jobs = n_parallel
 
-        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, callbacks=[early_stopping], catch=(ValueError,), gc_after_trial=True)        
+        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_parallel, callbacks=[early_stopping], catch=(ValueError,), gc_after_trial=True)        
 
     except EarlyStoppingExceeded:
         print(f'EarlyStopping exceeded for {classifier_name}; no new best scores on iters {OPTUNA_EARLY_STOPING}.')
