@@ -240,9 +240,9 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         l1_ratio             = trial.suggest_discrete_uniform('agc_l1_ratio', 0.0, 1.0, 0.1)
         loss                 = trial.suggest_categorical('agc_loss', ['modified_huber', 'hinge', 'smooth_hinge', 'squared_hinge', 'perceptron', 'log', 'squared'])
         classifier_obj       = AdaGradClassifier(alpha=alpha,
-                                                      l1_ratio=l1_ratio,
-                                                      loss=loss,
-                                                      random_state=SEED)
+                                                 l1_ratio=l1_ratio,
+                                                 loss=loss,
+                                                 random_state=SEED)
     
     elif classifier_name    == 'BalancedBaggingClassifier':
         n_estimators         = trial.suggest_int('bbc_n_estimators', 5, 20, 1)
