@@ -35,6 +35,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm._classes import LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearnex.svm.nusvc import NuSVC
+from skmultiflow.rules import VeryFastDecisionRulesClassifier
 from xgboost import XGBClassifier
 
 SEED        = 10
@@ -46,7 +47,7 @@ CLASSIFIER_NAMES = [
     'BalancedBaggingClassifier',
     'BalancedRandomForestClassifier',
     'BernoulliNB',
-    'BNClassifier',
+    #'BNClassifier',
     #'CatBoostClassifier',
     #'CategoricalNB',
     'CDClassifier',
@@ -83,6 +84,7 @@ CLASSIFIER_NAMES = [
     'RUSBoostClassifier',
     'SGDClassifier',
     #'TabNetClassifier',
+    'VeryFastDecisionRulesClassifier',
     'XGBClassifier',
 ]
 
@@ -90,10 +92,10 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     if classifier_name      == 'AdaBoostClassifier':
         classifier_obj       = AdaBoostClassifier(random_state=SEED)
-    
+
     elif classifier_name    == 'AdaGradClassifier':
         classifier_obj       = AdaGradClassifier(random_state=SEED)
-        
+
     elif classifier_name    == 'BalancedBaggingClassifier':
         classifier_obj       = BalancedBaggingClassifier(random_state=SEED, n_jobs=N_JOBS)
 
@@ -102,10 +104,10 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'BernoulliNB':
         classifier_obj       = BernoulliNB()    
-    
+
     elif classifier_name   == 'BNClassifier':
         classifier_obj       = BNClassifier()
-    
+
     elif classifier_name    == 'CatBoostClassifier':
         classifier_obj       = CatBoostClassifier(random_state=SEED, thread_count=N_JOBS)
 
@@ -138,10 +140,10 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'GaussianProcessClassifier':
         classifier_obj       = GaussianProcessClassifier(random_state=SEED, n_jobs=N_JOBS)
-    
+
     elif classifier_name    == 'HistGradientBoostingClassifier':
         classifier_obj       = HistGradientBoostingClassifier(random_state=SEED)
-    
+
     elif classifier_name    == 'KNeighborsClassifier':
         classifier_obj       = KNeighborsClassifier(n_jobs=N_JOBS)
 
@@ -150,19 +152,19 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'LinearDiscriminantAnalysis':
         classifier_obj       = LinearDiscriminantAnalysis()
-    
+
     elif classifier_name    == 'LinearSVC':
         classifier_obj       = LinearSVC(random_state=SEED)
-    
+
     elif classifier_name    == 'LinearSVC_AdditiveChi2Sampler':
         classifier_obj       = make_pipeline(AdditiveChi2Sampler(), LinearSVC(random_state=SEED))
-    
+
     elif classifier_name    == 'LinearSVC_Nystroem':
         classifier_obj       = make_pipeline(Nystroem(random_state=SEED), LinearSVC(random_state=SEED))
-    
+
     elif classifier_name    == 'LinearSVC_PolynomialCountSketch':
         classifier_obj       = make_pipeline(PolynomialCountSketch(random_state=SEED), LinearSVC(random_state=SEED))
-    
+
     elif classifier_name    == 'LinearSVC_RBFSampler':
         classifier_obj       = make_pipeline(RBFSampler(random_state=SEED), LinearSVC(random_state=SEED))
 
@@ -180,16 +182,16 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'MultinomialNB':
         classifier_obj       = MultinomialNB()
-        
+
     elif classifier_name    == 'NearestCentroid':
         classifier_obj       = NearestCentroid()
 
     elif classifier_name    == 'NuSVC_Linear':
         classifier_obj       = NuSVC(kernel='linear', random_state=SEED)
-    
+
     elif classifier_name    == 'NuSVC_RBF':
         classifier_obj       = NuSVC(kernel='rbf', random_state=SEED)
-        
+
     elif classifier_name    == 'NuSVC_Sigmoid':
         classifier_obj       = NuSVC(kernel='sigmoid', random_state=SEED)
 
@@ -207,22 +209,25 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'RandomForestClassifier':
         classifier_obj       = RandomForestClassifier(random_state=SEED, n_jobs=N_JOBS)
-                                                        
+
     elif classifier_name    == 'RidgeClassifier':
         classifier_obj       = RidgeClassifier(random_state=SEED)
-        
+
     elif classifier_name    == 'RUSBoostClassifier':
         classifier_obj       = RUSBoostClassifier(random_state=SEED)
-    
+
     elif classifier_name    == 'SGDClassifier':
         classifier_obj       = SGDClassifier(random_state=SEED, n_jobs=N_JOBS)
 
     elif classifier_name    == 'TabNetClassifier':
         classifier_obj       = TabNetClassifier(seed=SEED)
-        
+
+    elif classifier_name    == 'VeryFastDecisionRulesClassifier':
+        classifier_obj       = VeryFastDecisionRulesClassifier()
+
     elif classifier_name    == 'XGBClassifier':
         classifier_obj       = XGBClassifier(seed=SEED, n_jobs=N_JOBS)
-
+    
     return classifier_obj
 
 
@@ -271,6 +276,7 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                                               bootstrap=bootstrap,
                                                               random_state=SEED,
                                                               n_jobs=N_JOBS)
+    
     elif classifier_name    == 'BernoulliNB':
         alpha                = trial.suggest_discrete_uniform('bnb_alpha', 0.0, 1.0, 0.05)
         binarize             = trial.suggest_discrete_uniform('bnb_binarize', 0.0, 1.0, 0.05)
@@ -663,7 +669,7 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                                       bootstrap=bootstrap,
                                                       n_jobs=N_JOBS,
                                                       random_state=SEED)
-                                                    
+
     elif classifier_name    == 'RidgeClassifier':
         alpha                = trial.suggest_loguniform('rc_C', 1e-6, 1e6)
         tol                  = trial.suggest_loguniform('rc_tol', 1e-4, 1e-2)
@@ -719,6 +725,20 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                                 n_shared=n_shared,
                                                 momentum=momentum,
                                                 lambda_sparse=lambda_sparse)
+    
+    elif classifier_name    == 'VeryFastDecisionRulesClassifier':
+        grace_period           = trial.suggest_int('vfdrc_grace_period', 100, 400, 50)
+        min_samples_reevaluate = trial.suggest_int('vfdrc_min_samples_reevaluate', 10, 40, 5)
+        split_criterion        = trial.suggest_categorical('vfdrc_split_criterion', ['gini', 'info_gain'])
+        tie_threshold          = trial.suggest_discrete_uniform('vfdrc_tie_threshold', 0.0, 1.0, 0.05)
+        binary_split           = trial.suggest_categorical('vfdrc_binary_split', [False, True])
+        leaf_prediction        = trial.suggest_categorical('vfdrc_leaf_prediction', ['nc', 'nb', 'nba'])
+        classifier_obj         = VeryFastDecisionRulesClassifier(grace_period=grace_period,
+                                                                 min_samples_reevaluate=min_samples_reevaluate,
+                                                                 split_criterion=split_criterion,
+                                                                 tie_threshold=tie_threshold,
+                                                                 binary_split=binary_split,
+                                                                 leaf_prediction=leaf_prediction)
     
     elif classifier_name    == 'XGBClassifier':
         n_estimators         = trial.suggest_int('xgbc_n_estimators', 10, 200, 10)
