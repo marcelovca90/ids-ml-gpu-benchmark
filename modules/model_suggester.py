@@ -1,4 +1,6 @@
+from random import random
 from tkinter import N
+
 from sklearnex import patch_sklearn
 
 patch_sklearn(global_patch=True)
@@ -8,6 +10,8 @@ from imblearn.ensemble import (BalancedBaggingClassifier,
                                BalancedRandomForestClassifier,
                                EasyEnsembleClassifier, RUSBoostClassifier)
 from lightgbm import LGBMClassifier
+from lightning.classification import AdaGradClassifier, CDClassifier
+from pyAgrum.skbn import BNClassifier
 from pytorch_tabnet.tab_model import TabNetClassifier
 from skeLCS import eLCS
 from sklearn.discriminant_analysis import (LinearDiscriminantAnalysis,
@@ -31,7 +35,6 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.svm._classes import LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearnex.svm.nusvc import NuSVC
-from sklearnex.svm.svc import SVC
 from xgboost import XGBClassifier
 
 SEED        = 10
@@ -39,15 +42,18 @@ N_JOBS      = 1
 
 CLASSIFIER_NAMES = [
     'AdaBoostClassifier',
+    'AdaGradClassifier',
     'BalancedBaggingClassifier',
     'BalancedRandomForestClassifier',
     'BernoulliNB',
+    'BNClassifier',
     #'CatBoostClassifier',
-    'CategoricalNB',
+    #'CategoricalNB',
+    'CDClassifier',
     'ComplementNB',
     'DecisionTreeClassifier',
-    'EasyEnsembleClassifier',
-    'eLCS',
+    #'EasyEnsembleClassifier',
+    #'eLCS',
     'ExtraTreeClassifier',
     'ExtraTreesClassifier',
     'GaussianNB',
@@ -84,6 +90,9 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     if classifier_name      == 'AdaBoostClassifier':
         classifier_obj       = AdaBoostClassifier(random_state=SEED)
+    
+    elif classifier_name    == 'AdaGradClassifier':
+        classifier_obj       = AdaGradClassifier(random_state=SEED)
         
     elif classifier_name    == 'BalancedBaggingClassifier':
         classifier_obj       = BalancedBaggingClassifier(random_state=SEED, n_jobs=N_JOBS)
@@ -92,13 +101,19 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
         classifier_obj       = BalancedRandomForestClassifier(random_state=SEED, n_jobs=N_JOBS)
 
     elif classifier_name    == 'BernoulliNB':
-        classifier_obj       = BernoulliNB()
+        classifier_obj       = BernoulliNB()    
+    
+    elif classifier_name   == 'BNClassifier':
+        classifier_obj       = BNClassifier()
     
     elif classifier_name    == 'CatBoostClassifier':
         classifier_obj       = CatBoostClassifier(random_state=SEED, thread_count=N_JOBS)
 
     elif classifier_name    == 'CategoricalNB':
         classifier_obj       = CategoricalNB()
+
+    elif classifier_name    == 'CDClassifier':
+        classifier_obj       = CDClassifier(random_state=SEED)
 
     elif classifier_name    == 'ComplementNB':
         classifier_obj       = ComplementNB()
@@ -154,6 +169,12 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
     elif classifier_name    == 'LogisticRegression':
         classifier_obj       = LogisticRegression(n_jobs=N_JOBS)
 
+    elif classifier_name    == 'LinearSVC':
+        classifier_obj       = LinearSVC(random_state=SEED)
+
+    elif classifier_name    == 'SGDClassifier':
+        classifier_obj       = SGDClassifier(random_state=SEED)
+
     elif classifier_name    == 'MLPClassifier':
         classifier_obj       = MLPClassifier(random_state=SEED)
 
@@ -201,7 +222,7 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
         
     elif classifier_name    == 'XGBClassifier':
         classifier_obj       = XGBClassifier(seed=SEED, n_jobs=N_JOBS)
-    
+
     return classifier_obj
 
 
@@ -211,8 +232,17 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         n_estimators         = trial.suggest_int('abc_n_estimators', 25, 100, 5)
         learning_rate        = trial.suggest_loguniform('abc_learning_rate', 1e-6, 1e0)
         classifier_obj       = AdaBoostClassifier(n_estimators=n_estimators,
-                                                    learning_rate=learning_rate,
-                                                    random_state=SEED)
+                                                  learning_rate=learning_rate,
+                                                  random_state=SEED)
+    
+    elif classifier_name    == 'AdaGradClassifier':
+        alpha                = trial.suggest_loguniform('agc_alpha', 1e-3, 1e3)
+        l1_ratio             = trial.suggest_discrete_uniform('agc_l1_ratio', 0.0, 1.0, 0.1)
+        loss                 = trial.suggest_categorical('agc_loss', ['modified_huber', 'hinge', 'smooth_hinge', 'squared_hinge', 'perceptron', 'log', 'squared'])
+        classifier_obj       = AdaGradClassifier(alpha=alpha,
+                                                      l1_ratio=l1_ratio,
+                                                      loss=loss,
+                                                      random_state=SEED)
     
     elif classifier_name    == 'BalancedBaggingClassifier':
         n_estimators         = trial.suggest_int('bbc_n_estimators', 5, 20, 1)
@@ -220,11 +250,11 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         bootstrap            = trial.suggest_categorical('bbc_bootstrap', [False, True])
         sampling_strategy    = trial.suggest_categorical('bbc_sampling_strategy', ['majority', 'not minority', 'not majority', 'all'])
         classifier_obj       = BalancedBaggingClassifier(n_estimators=n_estimators,
-                                                            max_features=max_features,
-                                                            bootstrap=bootstrap,
-                                                            sampling_strategy=sampling_strategy,
-                                                            random_state=SEED,
-                                                            n_jobs=N_JOBS)
+                                                         max_features=max_features,
+                                                         bootstrap=bootstrap,
+                                                         sampling_strategy=sampling_strategy,
+                                                         random_state=SEED,
+                                                         n_jobs=N_JOBS)
 
     elif classifier_name    == 'BalancedRandomForestClassifier':
         n_estimators         = trial.suggest_int('brf_n_estimators', 50, 200, 10)
@@ -234,20 +264,33 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         max_features         = trial.suggest_int('brf_max_features', 1, X_train.shape[1])
         bootstrap            = trial.suggest_categorical('brf_bootstrap', [False, True])
         classifier_obj       = BalancedRandomForestClassifier(n_estimators=n_estimators,
-                                                                criterion=criterion,
-                                                                min_samples_split=min_samples_split,
-                                                                min_samples_leaf=min_samples_leaf,
-                                                                max_features=max_features,
-                                                                bootstrap=bootstrap,
-                                                                random_state=SEED,
-                                                                n_jobs=N_JOBS)
+                                                              criterion=criterion,
+                                                              min_samples_split=min_samples_split,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              max_features=max_features,
+                                                              bootstrap=bootstrap,
+                                                              random_state=SEED,
+                                                              n_jobs=N_JOBS)
     elif classifier_name    == 'BernoulliNB':
         alpha                = trial.suggest_discrete_uniform('bnb_alpha', 0.0, 1.0, 0.05)
         binarize             = trial.suggest_discrete_uniform('bnb_binarize', 0.0, 1.0, 0.05)
         fit_prior            = trial.suggest_categorical('bnb_fit_prior', [False, True])
         classifier_obj       = BernoulliNB(alpha=alpha,
-                                            binarize=binarize,
-                                            fit_prior=fit_prior)
+                                           binarize=binarize,
+                                           fit_prior=fit_prior)
+    
+    elif classifier_name   == 'BNClassifier':
+        learningMethod         = trial.suggest_categorical('bnc_learningMethod', ["Chow-Liu", "NaiveBayes", "GHC", "MIIC", "TAN", "Tabu"])
+        prior                  = trial.suggest_categorical('bnc_prior', ["Smoothing", "BDeu", "Dirichlet", "NoPrior"])
+        scoringType            = trial.suggest_categorical('bnc_scoringType', ["AIC", "BIC", "BD", "BDeu", "K2", "Log2"])
+        discretizationStrategy = trial.suggest_categorical('bnc_discretizationStrategy', ['quantile', 'uniform', 'kmeans', 'NML', 'CAIM', 'MDLP'])
+        discretizationNbBins   = trial.suggest_int('bnc_discretizationNbBins', 10, 50, 5)
+        classifier_obj         = BNClassifier(learningMethod=learningMethod,
+                                              prior=prior,
+                                              scoringType=scoringType,
+                                              discretizationStrategy=discretizationStrategy,
+                                              discretizationNbBins=discretizationNbBins,
+                                              usePR=True)
     
     elif classifier_name    == 'CatBoostClassifier':
         iterations           = trial.suggest_categorical('cbc_iterations', [2000])
@@ -256,12 +299,12 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         depth                = trial.suggest_int('cbc_depth', 2, 8, 2)
         verbose              = trial.suggest_categorical('cbc_verbose', [False])
         classifier_obj       = CatBoostClassifier(iterations=iterations,
-                                                    learning_rate=learning_rate,
-                                                    sampling_frequency=sampling_frequency,
-                                                    depth=depth,
-                                                    random_state=SEED,
-                                                    thread_count=N_JOBS,
-                                                    verbose=verbose)
+                                                  learning_rate=learning_rate,
+                                                  sampling_frequency=sampling_frequency,
+                                                  depth=depth,
+                                                  random_state=SEED,
+                                                  thread_count=N_JOBS,
+                                                  verbose=verbose)
 
     elif classifier_name    == 'CategoricalNB':
         alpha                = trial.suggest_discrete_uniform('catnb_alpha', 0.0, 1.0, 0.05)
@@ -270,6 +313,23 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         classifier_tmp       = CategoricalNB(alpha=alpha,
                                              fit_prior=fit_prior)
         classifier_obj       = make_pipeline(feature_scaler, classifier_tmp)
+    
+    elif classifier_name    == 'CDClassifier':
+        loss                 = trial.suggest_categorical('cdc_loss', ['squared_hinge', 'log', 'modified_huber', 'squared'])
+        penalty              = trial.suggest_categorical('cdc_penalty', ['l1', 'l2', 'l1/l2'])
+        multiclass           = loss in ['squared_hinge', 'log'] and penalty == 'l1/l2'
+        C                    = trial.suggest_loguniform('cdc_C', 1e-3, 1e3)
+        alpha                = trial.suggest_loguniform('cdc_alpha', 1e-3, 1e3)
+        selection            = trial.suggest_categorical('cdc_selection', ['cyclic', 'uniform'])
+        permute              = selection == 'cyclic'
+        classifier_obj       = CDClassifier(loss=loss,
+                                            penalty=penalty,
+                                            multiclass=multiclass,
+                                            C=C,
+                                            alpha=alpha,
+                                            selection=selection,
+                                            permute=permute,
+                                            random_state=SEED)
 
     elif classifier_name    == 'ComplementNB':
         alpha                = trial.suggest_discrete_uniform('compnb_alpha', 0.0, 1.0, 0.05)
@@ -286,20 +346,20 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         min_samples_leaf     = trial.suggest_int('dtc_min_samples_leaf', 1, 50)
         max_features         = trial.suggest_int('dtc_max_features', 1, X_train.shape[1])
         classifier_obj       = DecisionTreeClassifier(criterion=criterion, 
-                                                        splitter=splitter, 
-                                                        min_samples_split=min_samples_split,
-                                                        min_samples_leaf=min_samples_leaf,
-                                                        max_features=max_features,
-                                                        random_state=SEED)
+                                                      splitter=splitter, 
+                                                      min_samples_split=min_samples_split,
+                                                      min_samples_leaf=min_samples_leaf,
+                                                      max_features=max_features,
+                                                      random_state=SEED)
     
 
     elif classifier_name    == 'EasyEnsembleClassifier':
         n_estimators         = trial.suggest_int('eec_n_estimators', 5, 20, 1)
         sampling_strategy    = trial.suggest_categorical('eec_sampling_strategy', ['majority', 'not minority', 'not majority', 'all'])
         classifier_obj       = EasyEnsembleClassifier(n_estimators=n_estimators,
-                                                        sampling_strategy=sampling_strategy,
-                                                        random_state=SEED,
-                                                        n_jobs=N_JOBS)
+                                                      sampling_strategy=sampling_strategy,
+                                                      random_state=SEED,
+                                                      n_jobs=N_JOBS)
 
     elif classifier_name    == 'eLCS':
         learning_iterations  = trial.suggest_categorical('elcs_learning_iterations', [2000])
@@ -318,10 +378,10 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         min_samples_leaf     = trial.suggest_int('etc_min_samples_leaf', 1, 50)
         max_features         = trial.suggest_int('etc_max_features', 1, X_train.shape[1])
         classifier_obj       = ExtraTreeClassifier(criterion=criterion,
-                                                    min_samples_split=min_samples_split,
-                                                    min_samples_leaf=min_samples_leaf,
-                                                    max_features=max_features,
-                                                    random_state=SEED)
+                                                   min_samples_split=min_samples_split,
+                                                   min_samples_leaf=min_samples_leaf,
+                                                   max_features=max_features,
+                                                   random_state=SEED)
 
     elif classifier_name    == 'ExtraTreesClassifier':
         n_estimators         = trial.suggest_int('etsc_n_estimators', 50, 200, 10)
@@ -347,9 +407,9 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         max_iter_predict     = trial.suggest_int('gpc_max_iter_predict', 50, 200, 10)
         multi_class          = trial.suggest_categorical('gpc_multi_class', ['one_vs_one', 'one_vs_rest'])
         classifier_obj       = GaussianProcessClassifier(max_iter_predict=max_iter_predict,
-                                                            multi_class=multi_class,
-                                                            n_jobs=N_JOBS,
-                                                            random_state=SEED)
+                                                         multi_class=multi_class,
+                                                         n_jobs=N_JOBS,
+                                                         random_state=SEED)
     
     elif classifier_name    == 'HistGradientBoostingClassifier':
         learning_rate        = trial.suggest_loguniform('hgbc_learning_rate', 1e-3, 1e0)
@@ -361,14 +421,14 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         validation_fraction  = trial.suggest_categorical('hgbc_validation_fraction', [0.25])
         n_iter_no_change     = trial.suggest_categorical('hgbc_n_iter_no_change', [10])
         classifier_obj       = HistGradientBoostingClassifier(learning_rate=learning_rate,
-                                                                max_iter=max_iter,
-                                                                min_samples_leaf=min_samples_leaf,
-                                                                l2_regularization=l2_regularization,
-                                                                max_bins=max_bins,
-                                                                early_stopping=early_stopping,
-                                                                validation_fraction=validation_fraction,
-                                                                n_iter_no_change=n_iter_no_change,
-                                                                random_state=SEED)
+                                                              max_iter=max_iter,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              l2_regularization=l2_regularization,
+                                                              max_bins=max_bins,
+                                                              early_stopping=early_stopping,
+                                                              validation_fraction=validation_fraction,
+                                                              n_iter_no_change=n_iter_no_change,
+                                                              random_state=SEED)
     
     elif classifier_name    == 'KNeighborsClassifier':
         n_neighbors          = trial.suggest_int('knc_n_neighbors', 1, 15, 2)
@@ -386,12 +446,12 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         reg_alpha            = trial.suggest_discrete_uniform('lgbm_reg_alpha', 0.0, 1.0, 0.05)
         reg_lambda           = trial.suggest_discrete_uniform('lgbm_reg_lambda', 0.0, 1.0, 0.05)
         classifier_obj       = LGBMClassifier(num_leaves=num_leaves,
-                                                learning_rate=learning_rate,
-                                                n_estimators=n_estimators,
-                                                reg_alpha=reg_alpha,
-                                                reg_lambda=reg_lambda,
-                                                n_jobs=N_JOBS,
-                                                random_state=SEED)
+                                              learning_rate=learning_rate,
+                                              n_estimators=n_estimators,
+                                              reg_alpha=reg_alpha,
+                                              reg_lambda=reg_lambda,
+                                              n_jobs=N_JOBS,
+                                              random_state=SEED)
     
     elif classifier_name    == 'LinearDiscriminantAnalysis':
         solver               = trial.suggest_categorical('lda_solver', ['svd', 'lsqr', 'eigen'])
@@ -400,18 +460,18 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         n_components         = trial.suggest_int('lda_n_components', 1, min(n_features, n_classes-1), 1)
         tol                  = 1e-4 if solver == 'svd' else trial.suggest_categorical('lda_tol', [1e-5, 1e-4, 1e-3])
         classifier_obj       = LinearDiscriminantAnalysis(solver=solver,
-                                                            shrinkage=shrinkage,
-                                                            n_components=n_components,
-                                                            tol=tol)
+                                                          shrinkage=shrinkage,
+                                                          n_components=n_components,
+                                                          tol=tol)
     
     elif classifier_name    == 'LinearSVC':
         dual                 = trial.suggest_categorical('lsvc_dual', [False])
         C                    = trial.suggest_loguniform('lsvc_C', 1e-6, 1e3)
         max_iter             = trial.suggest_categorical('lsvc_max_iter', [2000])
         classifier_obj       = LinearSVC(dual=dual,
-                                            C=C,
-                                            max_iter=max_iter,
-                                            random_state=SEED)
+                                         C=C,
+                                         max_iter=max_iter,
+                                         random_state=SEED)
     
     elif classifier_name    == 'LinearSVC_AdditiveChi2Sampler':
         kernel_sample_steps  = trial.suggest_categorical('lsvc_ac2s_kernel_sample_steps', [1, 2, 3])
@@ -420,9 +480,9 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         max_iter             = trial.suggest_categorical('lsvc_ac2s_max_iter', [2000])
         feature_mapper       = AdditiveChi2Sampler(sample_steps=kernel_sample_steps)
         classifier_tmp       = LinearSVC(dual=dual,
-                                            C=C,
-                                            max_iter=max_iter,
-                                            random_state=SEED)
+                                         C=C,
+                                         max_iter=max_iter,
+                                         random_state=SEED)
         classifier_obj       = make_pipeline(feature_mapper, classifier_tmp)
     
     elif classifier_name    == 'LinearSVC_Nystroem':
@@ -435,9 +495,9 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                         n_components=kernel_n_components,
                                         random_state=SEED)
         classifier_tmp       = LinearSVC(dual=dual,
-                                            C=C,
-                                            max_iter=max_iter,
-                                            random_state=SEED)
+                                         C=C,
+                                         max_iter=max_iter,
+                                         random_state=SEED)
         classifier_obj       = make_pipeline(feature_mapper, classifier_tmp)
     
     elif classifier_name    == 'LinearSVC_PolynomialCountSketch':
@@ -448,13 +508,13 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         C                    = trial.suggest_loguniform('lsvc_pcs_C', 1e-6, 1e3)
         max_iter             = trial.suggest_categorical('lsvc_pcs_max_iter', [2000])
         feature_mapper       = PolynomialCountSketch(gamma=kernel_gamma,
-                                                        n_components=kernel_n_components,
-                                                        degree=kernel_degree,
-                                                        random_state=SEED)
+                                                     n_components=kernel_n_components,
+                                                     degree=kernel_degree,
+                                                     random_state=SEED)
         classifier_tmp       = LinearSVC(dual=dual,
-                                            C=C,
-                                            max_iter=max_iter,
-                                            random_state=SEED)
+                                         C=C,
+                                         max_iter=max_iter,
+                                         random_state=SEED)
         classifier_obj       = make_pipeline(feature_mapper, classifier_tmp)
     
     elif classifier_name    == 'LinearSVC_RBFSampler':
@@ -464,12 +524,12 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         C                    = trial.suggest_loguniform('lsvc_rbfs_C', 1e-6, 1e3)
         max_iter             = trial.suggest_categorical('lsvc_rbfs_max_iter', [2000])
         feature_mapper       = RBFSampler(gamma=kernel_gamma,
-                                            n_components=kernel_n_components,
-                                            random_state=SEED)
+                                          n_components=kernel_n_components,
+                                          random_state=SEED)
         classifier_tmp       = LinearSVC(dual=dual,
-                                            C=C,
-                                            max_iter=max_iter,
-                                            random_state=SEED)
+                                         C=C,
+                                         max_iter=max_iter,
+                                         random_state=SEED)
         classifier_obj       = make_pipeline(feature_mapper, classifier_tmp)
     
     elif classifier_name    == 'LogisticRegression':
@@ -482,7 +542,7 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                                   solver='saga',
                                                   n_jobs=N_JOBS,
                                                   l1_ratio=l1_ratio)
-    
+
     elif classifier_name    == 'MLPClassifier':
         create_hidden_layers = lambda value,count : tuple([int(value*2**(count-i-1)) for i in range(0,count)])
         hidden_layer_count   = trial.suggest_int('mlpc_hidden_layer_count', 1, 3, 1)
@@ -491,29 +551,29 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         learning_rate_init   = trial.suggest_loguniform('mlpc_learning_rate_init', 1e-6, 1e0)
         max_iter             = trial.suggest_categorical('mplc_max_iter', [2000])
         classifier_obj       = MLPClassifier(hidden_layer_sizes=hidden_layer_sizes,
-                                                learning_rate=learning_rate,
-                                                learning_rate_init=learning_rate_init,
-                                                max_iter=max_iter,
-                                                early_stopping=True,
-                                                random_state=SEED)
+                                             learning_rate=learning_rate,
+                                             learning_rate_init=learning_rate_init,
+                                             max_iter=max_iter,
+                                             early_stopping=True,
+                                             random_state=SEED)
 
     elif classifier_name    == 'MultinomialNB':
         alpha                = trial.suggest_discrete_uniform('mnb_alpha', 0.0, 1.0, 0.05)
         fit_prior            = trial.suggest_categorical('mnb_fit_prior', [False, True])
         classifier_obj       = MultinomialNB(alpha=alpha,
-                                                fit_prior=fit_prior)
+                                             fit_prior=fit_prior)
     
     elif classifier_name    == 'NearestCentroid':
         metric               = trial.suggest_categorical('nc_metric', ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', 'manhattan'])
         shrink_threshold     = trial.suggest_categorical('nc_shrink_threshold', [None, 0.2])
         classifier_obj       = NearestCentroid(metric=metric,
-                                                shrink_threshold=shrink_threshold)
+                                               shrink_threshold=shrink_threshold)
 
     elif classifier_name    == 'NuSVC_Linear':
         nu                   = trial.suggest_loguniform('nusvclin_nu', 1e-3, 1e+3)
         classifier_obj       = NuSVC(kernel='linear',
-                                        nu=nu,
-                                        random_state=SEED)
+                                     nu=nu,
+                                     random_state=SEED)
     
     elif classifier_name    == 'NuSVC_Poly':
         nu                   = trial.suggest_loguniform('nusvcpoly_nu', 1e-3, 1e+3)
@@ -521,29 +581,29 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         gamma                = trial.suggest_categorical('nusvcpoly_gamma', ['auto', 'scale'])
         coef0                = trial.suggest_discrete_uniform('nusvcpoly_coef0', 0.0, 1.0, 0.05)
         classifier_obj       = NuSVC(kernel='poly',
-                                        nu=nu,                   
-                                        degree=degree,
-                                        gamma=gamma,
-                                        coef0=coef0,
-                                        random_state=SEED)
+                                     nu=nu,                   
+                                     degree=degree,
+                                     gamma=gamma,
+                                     coef0=coef0,
+                                     random_state=SEED)
 
     elif classifier_name    == 'NuSVC_RBF':
         nu                   = trial.suggest_loguniform('nusvcrbf_nu', 1e-3, 1e+3)
         gamma                = trial.suggest_categorical('nusvcrbf_gamma', ['auto', 'scale'])
         classifier_obj       = NuSVC(kernel='rbf',
-                                        nu=nu,
-                                        gamma=gamma,
-                                        random_state=SEED)
+                                     nu=nu,
+                                     gamma=gamma,
+                                     random_state=SEED)
     
     elif classifier_name    == 'NuSVC_Sigmoid':
         nu                   = trial.suggest_loguniform('nusvcsig_nu', 1e-3, 1e+3)
         gamma                = trial.suggest_categorical('nusvcsig_gamma', ['auto', 'scale'])
         coef0                = trial.suggest_discrete_uniform('nusvcsig_coef0', 0.0, 1.0, 0.05)
         classifier_obj       = NuSVC(kernel='sigmoid',
-                                        nu=nu,
-                                        gamma=gamma,
-                                        coef0=coef0,
-                                        random_state=SEED)
+                                     nu=nu,
+                                     gamma=gamma,
+                                     coef0=coef0,
+                                     random_state=SEED)
     
     elif classifier_name    == 'PassiveAggressiveClassifier':
         C                    = trial.suggest_loguniform('pac_C', 1e-6, 1e3)
@@ -551,11 +611,11 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         validation_fraction  = trial.suggest_categorical('pac_validation_fraction', [0.25])
         n_iter_no_change     = trial.suggest_categorical('pac_n_iter_no_change', [10])
         classifier_obj       = PassiveAggressiveClassifier(C=C,
-                                                            early_stopping=early_stopping,
-                                                            validation_fraction=validation_fraction,
-                                                            n_iter_no_change=n_iter_no_change,
-                                                            n_jobs=N_JOBS,
-                                                            random_state=SEED)
+                                                           early_stopping=early_stopping,
+                                                           validation_fraction=validation_fraction,
+                                                           n_iter_no_change=n_iter_no_change,
+                                                           n_jobs=N_JOBS,
+                                                           random_state=SEED)
     
     elif classifier_name    == 'Perceptron':
         penalty              = trial.suggest_categorical('p_penalty', ['elasticnet'])
@@ -565,28 +625,28 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         validation_fraction  = trial.suggest_categorical('p_validation_fraction', [0.25])
         n_iter_no_change     = trial.suggest_categorical('p_n_iter_no_change', [10])
         classifier_obj       = Perceptron(penalty=penalty,
-                                            alpha=alpha,
-                                            eta0=eta0,
-                                            early_stopping=early_stopping,
-                                            n_iter_no_change=n_iter_no_change,
-                                            n_jobs=N_JOBS,
-                                            random_state=SEED)
+                                          alpha=alpha,
+                                          eta0=eta0,
+                                          early_stopping=early_stopping,
+                                          n_iter_no_change=n_iter_no_change,
+                                          n_jobs=N_JOBS,
+                                          random_state=SEED)
 
     elif classifier_name    == 'QuadraticDiscriminantAnalysis':
         reg_param            = trial.suggest_discrete_uniform('qda_reg_param', 0.0, 1.0, 0.05)
         tol                  = trial.suggest_loguniform('qda_tol', 1e-6, 1e-3)
         feature_scaler       = StandardScaler()
         classifier_tmp       = QuadraticDiscriminantAnalysis(reg_param=reg_param,
-                                                                tol=tol)
+                                                             tol=tol)
         classifier_obj       = make_pipeline(feature_scaler, classifier_tmp)
 
     elif classifier_name    == 'RadiusNeighborsClassifier':
         radius               = trial.suggest_categorical('rnc_radius', [0.5, 1.0, 2.0])
         weights              = trial.suggest_categorical('rnc_weights', ['uniform', 'distance'])
         classifier_obj       = RadiusNeighborsClassifier(radius=radius,
-                                                            weights=weights,
-                                                            n_jobs=N_JOBS,
-                                                            random_state=SEED)
+                                                         weights=weights,
+                                                         n_jobs=N_JOBS,
+                                                         random_state=SEED)
 
     elif classifier_name    == 'RandomForestClassifier':
         criterion            = trial.suggest_categorical('rfc_criterion', ['gini', 'entropy'])
@@ -596,29 +656,29 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         max_features         = trial.suggest_int('rfc_max_features', 1, X_train.shape[1])
         bootstrap            = trial.suggest_categorical('rfc_bootstrap', [False, True])
         classifier_obj       = RandomForestClassifier(n_estimators=n_estimators,
-                                                        criterion=criterion, 
-                                                        min_samples_split=min_samples_split,
-                                                        min_samples_leaf=min_samples_leaf,
-                                                        max_features=max_features,
-                                                        bootstrap=bootstrap,
-                                                        n_jobs=N_JOBS,
-                                                        random_state=SEED)
+                                                      criterion=criterion, 
+                                                      min_samples_split=min_samples_split,
+                                                      min_samples_leaf=min_samples_leaf,
+                                                      max_features=max_features,
+                                                      bootstrap=bootstrap,
+                                                      n_jobs=N_JOBS,
+                                                      random_state=SEED)
                                                     
     elif classifier_name    == 'RidgeClassifier':
         alpha                = trial.suggest_loguniform('rc_C', 1e-6, 1e6)
         tol                  = trial.suggest_loguniform('rc_tol', 1e-4, 1e-2)
         classifier_obj       = RidgeClassifier(alpha=alpha,
-                                                tol=tol,
-                                                random_state=SEED)
+                                               tol=tol,
+                                               random_state=SEED)
     
     elif classifier_name    == 'RUSBoostClassifier':
         n_estimators         = trial.suggest_int('rusbc_n_estimators', 25, 100, 25)
         learning_rate        = trial.suggest_loguniform('rusbc_learning_rate', 1e-6, 1e0)
         sampling_strategy    = trial.suggest_categorical('rusbc_sampling_strategy', ['majority', 'not minority', 'not majority', 'all'])
         classifier_obj       = RUSBoostClassifier(n_estimators=n_estimators,
-                                                    learning_rate=learning_rate,
-                                                    sampling_strategy=sampling_strategy,
-                                                    random_state=SEED) 
+                                                  learning_rate=learning_rate,
+                                                  sampling_strategy=sampling_strategy,
+                                                  random_state=SEED) 
     
     elif classifier_name    == 'SGDClassifier':
         loss                 = trial.suggest_categorical('sgdc_loss', ['hinge', 'log', 'modified_huber', 'squared_hinge'])
@@ -631,16 +691,16 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         validation_fraction  = trial.suggest_categorical('sgdc_validation_fraction', [0.25])
         n_iter_no_change     = trial.suggest_categorical('sgdc_n_iter_no_change', [10])
         classifier_obj       = SGDClassifier(loss=loss,
-                                                penalty=penalty,
-                                                alpha=alpha,
-                                                l1_ratio=l1_ratio,
-                                                learning_rate=learning_rate,
-                                                eta0=eta0,
-                                                early_stopping=early_stopping,
-                                                validation_fraction=validation_fraction,
-                                                n_iter_no_change=n_iter_no_change,
-                                                n_jobs=N_JOBS,
-                                                random_state=SEED)
+                                             penalty=penalty,
+                                             alpha=alpha,
+                                             l1_ratio=l1_ratio,
+                                             learning_rate=learning_rate,
+                                             eta0=eta0,
+                                             early_stopping=early_stopping,
+                                             validation_fraction=validation_fraction,
+                                             n_iter_no_change=n_iter_no_change,
+                                             n_jobs=N_JOBS,
+                                             random_state=SEED)
     
     elif classifier_name    == 'TabNetClassifier':
         n_d                  = trial.suggest_categorical('tnc_n_d', [8, 16, 32, 64])
@@ -667,11 +727,11 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
         booster              = trial.suggest_categorical('xgbc_booster', ['gbtree', 'gblinear', 'dart'])
         gamma                = trial.suggest_loguniform('xgbc_gamma', 1e-6, 1e0)
         classifier_obj       = XGBClassifier(n_estimators=n_estimators, 
-                                                use_label_encoder=use_label_encoder,
-                                                learning_rate=learning_rate,
-                                                booster=booster,
-                                                gamma=gamma,
-                                                n_jobs=N_JOBS,
-                                                random_state=SEED)
+                                             use_label_encoder=use_label_encoder,
+                                             learning_rate=learning_rate,
+                                             booster=booster,
+                                             gamma=gamma,
+                                             n_jobs=N_JOBS,
+                                             random_state=SEED)
     
     return classifier_obj
