@@ -1,6 +1,3 @@
-from random import random
-from tkinter import N
-
 from sklearnex import patch_sklearn
 
 patch_sklearn(global_patch=True)
@@ -87,6 +84,8 @@ CLASSIFIER_NAMES = [
     'VeryFastDecisionRulesClassifier',
     'XGBClassifier',
 ]
+
+CLASSIFIER_NAMES = ['VeryFastDecisionRulesClassifier']
 
 def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
@@ -227,7 +226,7 @@ def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     elif classifier_name    == 'XGBClassifier':
         classifier_obj       = XGBClassifier(seed=SEED, n_jobs=N_JOBS)
-    
+
     return classifier_obj
 
 
@@ -727,18 +726,20 @@ def get_optimized_suggestion(X_train, y_train, classifier_name, trial):
                                                 lambda_sparse=lambda_sparse)
     
     elif classifier_name    == 'VeryFastDecisionRulesClassifier':
+        ordered_rules          = trial.suggest_categorical('vfdrc_ordered_rules', [False, True])
         grace_period           = trial.suggest_int('vfdrc_grace_period', 100, 400, 50)
-        min_samples_reevaluate = trial.suggest_int('vfdrc_min_samples_reevaluate', 10, 40, 5)
-        split_criterion        = trial.suggest_categorical('vfdrc_split_criterion', ['gini', 'info_gain'])
         tie_threshold          = trial.suggest_discrete_uniform('vfdrc_tie_threshold', 0.0, 1.0, 0.05)
-        binary_split           = trial.suggest_categorical('vfdrc_binary_split', [False, True])
-        leaf_prediction        = trial.suggest_categorical('vfdrc_leaf_prediction', ['nc', 'nb', 'nba'])
-        classifier_obj         = VeryFastDecisionRulesClassifier(grace_period=grace_period,
-                                                                 min_samples_reevaluate=min_samples_reevaluate,
-                                                                 split_criterion=split_criterion,
+        rule_prediction        = trial.suggest_categorical('vfdrc_rule_prediction', ['first_hit', 'weighted_max', 'weighted_sum'])
+        max_rules              = trial.suggest_int('vfdrc_max_rules', 10, 40, 5)
+        expand_criterion       = trial.suggest_categorical('vfdrc_expand_criterion', ['info_gain', 'hellinger', 'foil_gain'])
+        remove_poor_atts       = trial.suggest_categorical('vfdrc_remove_poor_atts', [False, True])
+        classifier_obj         = VeryFastDecisionRulesClassifier(ordered_rules=ordered_rules,
+                                                                 grace_period=grace_period,
                                                                  tie_threshold=tie_threshold,
-                                                                 binary_split=binary_split,
-                                                                 leaf_prediction=leaf_prediction)
+                                                                 rule_prediction=rule_prediction,
+                                                                 max_rules=max_rules,
+                                                                 expand_criterion=expand_criterion,
+                                                                 remove_poor_atts=remove_poor_atts)
     
     elif classifier_name    == 'XGBClassifier':
         n_estimators         = trial.suggest_int('xgbc_n_estimators', 10, 200, 10)
