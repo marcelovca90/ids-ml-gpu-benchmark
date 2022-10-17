@@ -28,7 +28,6 @@ N_TRIALS       = 100
 TIMEOUT        = 60*60*4
 FILE_PREFIX    = 'sequential-noencoding-optimized'
 DATASET_FOLDER = '../datasets/DATASET_NAME/'
-limit_rows      = None
 n_cpus          = os.cpu_count()
 n_parallel      = int(n_cpus / 2)
 uuid            = str(uuid.uuid4())[:8]
