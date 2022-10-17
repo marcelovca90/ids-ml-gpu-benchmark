@@ -85,8 +85,6 @@ CLASSIFIER_NAMES = [
     'XGBClassifier',
 ]
 
-CLASSIFIER_NAMES = ['VeryFastDecisionRulesClassifier']
-
 def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 
     if classifier_name      == 'AdaBoostClassifier':
