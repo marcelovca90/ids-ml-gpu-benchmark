@@ -24,15 +24,8 @@ from model_suggester import CLASSIFIER_NAMES, get_baseline_suggestion
 
 
 QUICK_RUN      = False
-SEED           = 10
-N_JOBS         = 1
-N_TRIALS       = 1
-TIMEOUT        = None
 FILE_PREFIX    = 'sequential-noencoding-baseline'
 DATASET_FOLDER = '../datasets/DATASET_NAME/'
-limit_rows     = None
-n_cpus         = os.cpu_count()
-n_parallel     = int(n_cpus / 2)
 uuid           = str(uuid.uuid4())[:8]
 
 
@@ -157,7 +150,7 @@ for classifier_name in CLASSIFIER_NAMES:
     
     print(f"Study optimization started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
     try:
-        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=1, catch=(ValueError,), gc_after_trial=True)
+        study.optimize(objective, timeout=None, n_trials=1, n_jobs=1, catch=(ValueError,), gc_after_trial=True)
     except Exception as e:
         print(f"Study with classifier {classifier_name} failed. Reason: {e}")
     print(f"Study optimization finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
