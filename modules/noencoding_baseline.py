@@ -29,10 +29,10 @@ N_JOBS         = 1
 N_TRIALS       = 1
 TIMEOUT        = None
 FILE_PREFIX    = 'sequential-noencoding-baseline'
-DATASET_FOLDER = '../datasets/mqtt_iot_ids2020/'
+DATASET_FOLDER = '../datasets/DATASET_NAME/'
 limit_rows     = None
 n_cpus         = os.cpu_count()
-n_parallel     = int(n_cpus) - 2
+n_parallel     = int(n_cpus / 2)
 uuid           = str(uuid.uuid4())[:8]
 
 

@@ -27,7 +27,7 @@ QUICK_RUN      = False
 N_TRIALS       = 100
 TIMEOUT        = 60*60*4
 FILE_PREFIX    = 'sequential-noencoding-optimized'
-DATASET_FOLDER = '../datasets/mqtt_iot_ids2020/'
+DATASET_FOLDER = '../datasets/DATASET_NAME/'
 limit_rows      = None
 n_cpus          = os.cpu_count()
 n_parallel      = int(n_cpus / 2)
@@ -49,7 +49,7 @@ def calculate_score(metric_name, labels, y_test, y_pred):
         raise ValueError('Invalid metric name.')
 
 
-OPTUNA_EARLY_STOPING = 10
+OPTUNA_EARLY_STOPING = 20
 
 class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
     early_stop = OPTUNA_EARLY_STOPING
