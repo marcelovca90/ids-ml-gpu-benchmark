@@ -15,7 +15,7 @@ from study_utils import (EARLY_STOPPING_PATIENCE, EarlyStoppingExceeded,
                          load_mappings, persist_best_results,
                          plot_best_and_mean_results, sort_results, truncate)
 
-QUICK_RUN      = True
+QUICK_RUN      = False
 N_TRIALS       = 100
 TIMEOUT        = 60*60*4
 FILE_PREFIX    = 'noencoding-optimized'

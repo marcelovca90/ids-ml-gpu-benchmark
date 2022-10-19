@@ -13,7 +13,7 @@ from study_utils import (calculate_score, load_csv, load_mappings,
                          persist_best_results, plot_best_and_mean_results,
                          sort_results, truncate)
 
-QUICK_RUN      = True
+QUICK_RUN      = False
 FILE_PREFIX    = 'noencoding-baseline'
 DATASET_FOLDER = '../datasets/DATASET_NAME/'
 UUID           = str(uuid.uuid4())[:8]
