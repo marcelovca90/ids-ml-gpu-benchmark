@@ -1,112 +1,49 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import json
 import logging
-import os
+import sys
 import uuid
-from datetime import datetime
 
-import matplotlib.pyplot as plt
-import numpy as np
+import colorlog
 import optuna
-import pandas as pd
 from imblearn.metrics import classification_report_imbalanced
-from sklearn.metrics import (accuracy_score, balanced_accuracy_score,
-                             classification_report, f1_score)
+from sklearn.metrics import classification_report
 
 from model_suggester import CLASSIFIER_NAMES, get_baseline_suggestion
-
-# In[2]:
-
+from study_utils import (calculate_score, load_csv, load_mappings,
+                         persist_best_results, plot_best_and_mean_results,
+                         sort_results, truncate)
 
 QUICK_RUN      = False
-FILE_PREFIX    = 'sequential-noencoding-baseline'
+FILE_PREFIX    = 'noencoding-baseline'
 DATASET_FOLDER = '../datasets/DATASET_NAME/'
-uuid           = str(uuid.uuid4())[:8]
+UUID           = str(uuid.uuid4())[:8]
 
-
-def calculate_score(metric_name, labels, y_test, y_pred):
-    if metric_name == 'accuracy': 
-        return accuracy_score(y_test, y_pred)
-    elif metric_name == 'balanced_accuracy': 
-        return balanced_accuracy_score(y_test, y_pred)
-    elif metric_name == 'f1_score_micro': 
-        return f1_score(y_test, y_pred, labels=labels, average='micro')
-    elif metric_name == 'f1_score_macro': 
-        return f1_score(y_test, y_pred, labels=labels, average='macro')
-    elif metric_name == 'f1_score_weighted': 
-        return f1_score(y_test, y_pred, labels=labels, average='weighted')
-    else:
-        raise ValueError('Invalid metric name.')
-
-
-# In[3]:
-
-
-print(f"Sequential-NoEncoding-Baseline.py - Execution started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
-
-
-# In[4]:
-
-def load_mappings(filename='mappings.json'):
-    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
-    full_filename = os.path.join(base_folder, filename)
-    with open(full_filename, 'r') as fp:
-        return json.load(fp)
-
-def load_csv(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
-    full_filename = os.path.join(base_folder, filename)
-    df = pd.read_csv(filepath_or_buffer=full_filename).infer_objects().to_numpy()
-    return df.ravel() if df.shape[1] == 1 else df
-    
-def load_hdf(filename):
-    base_folder = os.path.join(os.path.dirname(__file__), DATASET_FOLDER)
-    full_filename = os.path.join(base_folder, filename)
-    df = pd.read_hdf(path_or_buf=full_filename).infer_objects().to_numpy()
-    return df.ravel() if df.shape[1] == 1 else df
-
-
-# In[5]:
-
-mappings = load_mappings()
-class_names = [str(v) for v in mappings.keys()]
-class_indices = [int(k) for k in mappings.values()]
-
-X_train, X_test, y_train, y_test = load_csv('X_train.csv'), load_csv('X_test.csv'), load_csv('y_train.csv'), load_csv('y_test.csv')
-
-print('\nX_train',X_train.shape,'\ny_train',y_train.shape,set(y_train))
-print('X_test',X_test.shape,'\ny_test',y_test.shape,set(y_test))
-
-if QUICK_RUN:
-    limit = 128*128
-    X_train = X_train[:int(limit*0.8)]
-    y_train = y_train[:int(limit*0.8)]
-    X_test = X_test[:int(limit*0.2)]
-    y_test = y_test[:int(limit*0.2)]
-
-
-# In[8]:
-
-
-print(f"Optimization batch started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
-
-
-# In[ ]:
-
-
+formatter = colorlog.ColoredFormatter("%(log_color)s[%(levelname)1.1s %(asctime)s]%(reset)s %(message)s")
+handler_stdout = logging.StreamHandler(stream=sys.stdout)
+handler_stdout.setFormatter(formatter)
+handler_file = logging.FileHandler(f"{FILE_PREFIX}_{UUID}.log", mode="w")
+handler_file.setFormatter(formatter)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logger.addHandler(logging.FileHandler(f"{FILE_PREFIX}_{uuid}.log", mode="w"))
+logger.addHandler(handler_stdout)
+logger.addHandler(handler_file)
 optuna.logging.enable_propagation()
+optuna.logging.disable_default_handler()
+
+logger.info(f"Optimization for {len(CLASSIFIER_NAMES)} classifiers started.")
+
+class_names,class_indices = load_mappings(DATASET_FOLDER)
+
+X_train, X_test = load_csv(DATASET_FOLDER, 'X_train.csv'), load_csv(DATASET_FOLDER, 'X_test.csv')
+y_train, y_test = load_csv(DATASET_FOLDER, 'y_train.csv'), load_csv(DATASET_FOLDER, 'y_test.csv')
+
+if QUICK_RUN:
+    X_train, X_test, y_train, y_test = truncate(X_train), truncate(X_test), truncate(y_train), truncate(y_test)
+
+logger.info(f'X_train shape: {X_train.shape}; y_train shape: {y_train.shape}; y_train unique values: {set(y_train)}')
+logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
 best_results = {}
-
-print(f'Baselining {len(CLASSIFIER_NAMES)} classifiers.')
 
 for classifier_name in CLASSIFIER_NAMES:
 
@@ -114,7 +51,7 @@ for classifier_name in CLASSIFIER_NAMES:
 
         classifier_obj = get_baseline_suggestion(X_train, y_train, classifier_name, trial)
 
-        # print(f'Suggested model: {type(classifier_obj)} with {vars(classifier_obj)}.')
+        # logger.info(f'Suggested model: {type(classifier_obj)} with {vars(classifier_obj)}.')
 
         classifier_obj.fit(X_train, y_train)
 
@@ -139,21 +76,21 @@ for classifier_name in CLASSIFIER_NAMES:
         try:
             return _f1_score_weighted
         except Exception as e:
-            print(f'Unable to return score for {classifier_name}. Reason: {e}')
+            logger.info(f'Unable to return score for {classifier_name}. Reason: {e}')
             return 0.0
     
-    study = optuna.create_study(study_name=f"{classifier_name}_{uuid}", storage="mysql://root:root@localhost/optuna", load_if_exists=True, direction='maximize')
-
-    print(f'--------------------------------------------------------------------------------')
-    print(f'-------------------- {classifier_name.center(38)} --------------------')
-    print(f'--------------------------------------------------------------------------------')
+    logger.info(f'--------------------------------------------------------------------------------')
+    logger.info(f'-------------------- {classifier_name.center(38)} --------------------')
+    logger.info(f'--------------------------------------------------------------------------------')
     
-    print(f"Study optimization started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
+    study = optuna.create_study(study_name=f"{classifier_name}_{UUID}", storage="mysql://root:root@localhost/optuna", load_if_exists=True, direction='maximize')
+    
+    logger.info(f"Study started.")
     try:
         study.optimize(objective, timeout=None, n_trials=1, n_jobs=1, catch=(ValueError,), gc_after_trial=True)
     except Exception as e:
-        print(f"Study with classifier {classifier_name} failed. Reason: {e}")
-    print(f"Study optimization finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
+        logger.info(f"Study with classifier {classifier_name} failed. Reason: {e}")
+    logger.info(f"Study finished.")
     
     # optuna.visualization.plot_optimization_history(study).show()
     
@@ -163,75 +100,20 @@ for classifier_name in CLASSIFIER_NAMES:
     try:
         best_results[classifier_name] = \
             [{'number': trial.number, 'values': trial.values, 'params': trial.params, 'user_attrs': trial.user_attrs} for trial in study.get_trials()]
-        with open(f'{FILE_PREFIX}_{uuid}_{classifier_name}.json', 'w') as fp:
+        with open(f'{FILE_PREFIX}_{UUID}_{classifier_name}.json', 'w') as fp:
             json.dump(best_results[classifier_name], fp)
     except Exception as e:
         best_results[classifier_name] = \
-            [{'number': None,         'values': None,         'params': None,         'user_attrs': None}             for trial in study.get_trials()]
-        print(f'Unable to persist results for {classifier_name}. Reason: {e}')
-
-
-# In[ ]:
-
-
-print(f"Optimization batch finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
-
-
-# In[ ]:
-
+            [{'number': None,         'values': None,         'params': None,         'user_attrs': None} for trial in study.get_trials()]
+        logger.info(f'Unable to persist results for {classifier_name}. Reason: {e}')
 
 # for each classifier, sort results according to score (descending) and remove results without report
-# best_results = dict(sorted(best_results.items()))
-for key,value in best_results.items():
-    #_classification_report = json.loads(value['_classification_report'])
-    #_classification_report_imbalanced = json.loads(value['_classification_report_imbalanced'])
-    try:
-        best_results[key] = sorted([v for v in best_results[key]], key=lambda d: d['user_attrs']['f1_score_weighted'], reverse=True) 
-    except Exception as e:
-        print(f'Unable to set best_results[{key}]. Reason: {e}')
-        best_results[key] = 0.0
+best_results = sort_results(best_results)
 
-# persist results to filesystem    
-with open(f'{FILE_PREFIX}_{uuid}.json', 'w') as fp:
-    json.dump(best_results, fp)
+# persist results to filesystem
+persist_best_results(FILE_PREFIX, UUID, best_results)
 
+# plot and persist best and mean results to filesystem
+plot_best_and_mean_results(FILE_PREFIX, UUID, best_results)
 
-# In[ ]:
-
-
-# plot the best result for each classifier
-plt.figure(figsize=(32,24))
-plt.rcParams['font.size'] = '16'
-idx = 0
-for key, value in best_results.items():
-    name_i = key
-    try:
-        value_i = value[0]['user_attrs']['f1_score_weighted']
-    except Exception as e:
-        print(f'Unable to retrieve best result for {key}. Reason: {e}')
-        value_i = 0.0
-    plt.bar(name_i,value_i)
-    plt.text(idx-0.35,value_i+0.01,f'{100*value_i:.2f}%')
-    idx += 1
-
-# plot the best result for every classifier and the mean line
-try:
-    mean = np.mean([v[0]['user_attrs']['f1_score_weighted'] for v in best_results.values()])
-except Exception as e:
-    print(f'Unable to calculate the mean score. Reason: {e}')
-    mean = 0.0
-plt.axhline(mean, color='black', linestyle='--')
-plt.xticks(rotation=30, ha='right')
-plt.xticks(range(0,len(best_results)),best_results.keys())
-plt.yticks(rotation=30, ha='right')
-plt.yticks(np.linspace(0,1,11))
-plt.ylim(0,1.05)
-plt.savefig(f'{FILE_PREFIX}_{uuid}.png')
-plt.show(block=False)
-
-
-# In[ ]:
-
-
-print(f"Sequential-NoEncoding-Baseline.py - Execution finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
-
+logger.info(f"Baselining finished.")
