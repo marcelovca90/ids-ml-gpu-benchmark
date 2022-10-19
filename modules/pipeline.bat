@@ -7,7 +7,7 @@ rem - conda to be in the PATH
 rem - cmd.exe to be initialized with conda init
 
 rem Define here the path to your conda installation
-set CONDAPATH=C:\Users\marce\anaconda3
+set CONDAPATH=%userprofile%\anaconda3
 rem Define here the name of the environment
 set ENVNAME=tf
 
@@ -21,8 +21,8 @@ call %CONDAPATH%\Scripts\activate.bat %ENVPATH%
 
 rem Run a python script in that environment
 rem python data_loader.py > data_loader.log
-python noencoding_baseline.py > noencoding_baseline.log
-python noencoding_optimized.py > noencoding_optimized.log
+python noencoding_baseline.py
+python noencoding_optimized.py
 
 rem Deactivate the environment
 call conda deactivate

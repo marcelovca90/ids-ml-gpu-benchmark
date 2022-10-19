@@ -1,3 +1,5 @@
+import os
+
 from sklearnex import patch_sklearn
 
 patch_sklearn(global_patch=True)
@@ -84,6 +86,17 @@ CLASSIFIER_NAMES = [
     'VeryFastDecisionRulesClassifier',
     'XGBClassifier',
 ]
+
+def get_n_jobs(classifier_name):
+    if classifier_name in ['LinearSVC', 'LinearSVC_AdditiveChi2Sampler', 'LinearSVC_Nystroem', 'LinearSVC_PolynomialCountSketch', 'LinearSVC_RBFSampler', 'TabNetClassifier']:
+        return 1    
+    elif classifier_name in ['CatBoostClassifier']:
+        return 2
+    elif classifier_name in ['XGBClassifier']:
+        return 4
+    else:
+        return int(os.cpu_count() / 2)
+
 
 def get_baseline_suggestion(X_train, y_train, classifier_name, trial):
 

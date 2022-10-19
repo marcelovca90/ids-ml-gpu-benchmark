@@ -1,9 +1,12 @@
-from calendar import c
 import json
+import logging
 import os
+import sys
+from calendar import c
 from collections import OrderedDict
 from operator import getitem
 
+import colorlog
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,73 +19,83 @@ from sklearn.tree import ExtraTreeClassifier
 
 SEED = 10
 
+formatter = colorlog.ColoredFormatter("%(log_color)s[%(levelname)1.1s %(asctime)s]%(reset)s %(message)s")
+handler_stdout = logging.StreamHandler(stream=sys.stdout)
+handler_stdout.setFormatter(formatter)
+handler_file = logging.FileHandler(f"data_loader.log", mode="w")
+handler_file.setFormatter(formatter)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(handler_stdout)
+logger.addHandler(handler_file)
+
 def _baseline_evaluation(df, label_column='label'):
     X_train, X_test, y_train, y_test = _train_test_split(df, label_column)
     cls = ExtraTreeClassifier(random_state=SEED)
     cls.fit(X_train, y_train)
-    print(f"Shape: {df.shape} => Training Score: {cls.score(X_train, y_train)}")
-    print(f"Shape: {df.shape} => Test Score    : {cls.score(X_test, y_test)}\n")
+    logger.info(f"Shape: {df.shape} => Training Score: {cls.score(X_train, y_train)}")
+    logger.info(f"Shape: {df.shape} => Test Score    : {cls.score(X_test, y_test)}\n")
 
 def _drop_duplicates(df, create_count_column=False):
     if create_count_column:
         current_cols = [x for x in df.columns]
-        print(f'Duplicated rows before removal: {df.duplicated().sum()}')
+        logger.info(f'Duplicated rows before removal: {df.duplicated().sum()}')
         df['count'] = 1
         df = df.groupby(current_cols)['count'].count().reset_index().drop_duplicates()
-        print(f'Duplicated after before removal: {df.duplicated().sum()}')
+        logger.info(f'Duplicated after before removal: {df.duplicated().sum()}')
         return df
     else:
-        print(f'Dropping {df.duplicated().sum()} duplicated rows.')
+        logger.info(f'Dropping {df.duplicated().sum()} duplicated rows.')
         return df.drop_duplicates()
 
 def _drop_less_relevant_columns(df, label_column, threshold=0):
     constant_filter = VarianceThreshold(threshold=threshold).fit(df.drop(columns=[label_column]))
     support_columns = df.drop(columns=[label_column]).columns[constant_filter.get_support()]
     non_constant_columns = [col for col in df.columns if col not in support_columns]
-    print(f'\nNon (quasi-)constant columns: {non_constant_columns}')
+    logger.info(f'\nNon (quasi-)constant columns: {non_constant_columns}')
     constant_columns = [col for col in df.columns if col in support_columns]
-    print(f'\n(Quasi-)constant columns: {constant_columns}')
+    logger.info(f'\n(Quasi-)constant columns: {constant_columns}')
     return df.drop(columns=constant_columns)
 
 def _filter_by_instance_hardness(X, y, n_folds=5):
-    print(f"\nX and y shapes before filtering by instance hardness:\n{X.shape}; {y.shape}")
+    logger.info(f"\nX and y shapes before filtering by instance hardness:\n{X.shape}; {y.shape}")
     X, y = InstanceHardnessThreshold(estimator=ExtraTreeClassifier(random_state=SEED), cv=n_folds, random_state=SEED).fit_resample(X, y)
-    print(f"\nX and y shapes after filtering by instance hardness:\n{X.shape}; {y.shape}")
+    logger.info(f"\nX and y shapes after filtering by instance hardness:\n{X.shape}; {y.shape}")
     return X, y
 
 def _filter_by_frequency(df, column, min_rel_freq_pct=0.01):
-    print(f"\nValue counts before filtering by frequency:")
+    logger.info(f"\nValue counts before filtering by frequency:")
     _pretty_print_value_counts(df, column)
     vcd = df[column].value_counts(normalize=True).to_dict()
     relevant_labels = [key for key,value in vcd.items() if value > min_rel_freq_pct/100.0]
-    print(f'\nDropping rows with relative frequency inferior to {min_rel_freq_pct:.3f}% ****')
+    logger.info(f'\nDropping rows with relative frequency inferior to {min_rel_freq_pct:.3f}% ****')
     filtered_labels = df[column].value_counts().index.drop(relevant_labels)
     for label in filtered_labels:
         df = df.drop(df[df.label == label].index)
-    print(f"\nValue counts after filtering by frequency:")
+    logger.info(f"\nValue counts after filtering by frequency:")
     _pretty_print_value_counts(df, column)
     return df
 
 def _filter_by_quantile(df, column, percentage=0.05):
     value_counts = df[column].value_counts()
-    print(f"\nValue counts before filtering by quantile:")
+    logger.info(f"\nValue counts before filtering by quantile:")
     _pretty_print_value_counts(df, column)
     threshold = value_counts.quantile(percentage)
-    print(f"\nDropping '{column}' rows with less than {threshold:.2f} occurrences.")
+    logger.info(f"\nDropping '{column}' rows with less than {threshold:.2f} occurrences.")
     df = df[df[column].isin(value_counts.index[value_counts.ge(threshold)])]
-    print(f"\nValue counts before filtering by quantile:\n")
+    logger.info(f"\nValue counts before filtering by quantile:\n")
     _pretty_print_value_counts(df, column)
-    print(f'\nFiltering by quantile performed succesfully; new DF shape: {df.shape}.')
+    logger.info(f'\nFiltering by quantile performed succesfully; new DF shape: {df.shape}.')
     return df
 
 def _one_hot_encode(df, column):
     df = pd.get_dummies(df, columns=[column])
-    print(f'\nColumn \'{column}\' successfully one-hot-encoded; new DF shape: {df.shape}.')
+    logger.info(f'\nColumn \'{column}\' successfully one-hot-encoded; new DF shape: {df.shape}.')
     return df
 
 def _label_encode(df, column):
     encoder = LabelEncoder().fit(df[column])
-    print(f"\nLabel encoder found the following classes for '{column}':\n{encoder.classes_}")
+    logger.info(f"\nLabel encoder found the following classes for '{column}':\n{encoder.classes_}")
     df[column] = encoder.transform(df[column])
     mappings = {}
     for _class in encoder.classes_:
@@ -150,28 +163,28 @@ def _pretty_print_value_counts(df, column, lpad=64, rpad=12):
         output.append(f'| {col_1} | {col_2} | {col_3} |')
     output.append(f"+-{'-----'.ljust(lpad,'-')}-+-{'-----'.rjust(rpad,'-')}-+-{'---------'.rjust(rpad,'-')}-+")
     for line in output:
-        print(line)
+        logger.info(line)
     return output
 
 def _replace_values(df, column, old_value, new_value):
     df.loc[(df[column] == old_value), column] = new_value
 
 def _select_relevant_features(df, label_column, n_folds=5):
-    print(f'\nPerforming {n_folds}-fold recursive feature elimination:')
+    logger.info(f'\nPerforming {n_folds}-fold recursive feature elimination:')
     X, y = df.drop(columns=[label_column]).select_dtypes(include='number'), df[label_column]
     rfecv = RFECV(estimator=ExtraTreeClassifier(random_state=SEED), cv=n_folds, verbose=1)
     rfecv.fit(X, y)
     feature_mask = X.columns[rfecv.get_support()]
     relevant_columns = [col for col in X.columns if col not in feature_mask]
-    print(f'\nFeatures that will be kept: {relevant_columns}')
+    logger.info(f'\nFeatures that will be kept: {relevant_columns}')
     irrelevant_cols = [col for col in X.columns if col in feature_mask]
-    print(f'\nFeatures that will be dropped: {irrelevant_cols}')
+    logger.info(f'\nFeatures that will be dropped: {irrelevant_cols}')
     return df.drop(columns=irrelevant_cols)
 
 def _sort_columns(df, rightmost_columns):
     final_cols = [x for x in df.columns.values if x not in rightmost_columns]
     final_cols.extend(rightmost_columns)
-    print(f'\nColumns sorted according to {final_cols}.\n')
+    logger.info(f'\nColumns sorted according to {final_cols}.\n')
     return df.reindex(columns=final_cols)
 
 def _train_test_split(df, label_column, test_size=0.2, filter_rows=False, n_folds=5):
@@ -190,7 +203,7 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
         
         full_filename = os.path.join(folder, base_filename)
 
-        print(f'Started processing folder \'{folder}\'.')
+        logger.info(f'Started processing folder \'{folder}\'.')
         
         df = pd.read_table(filepath_or_buffer=full_filename, skiprows=8, nrows=rows_limit, low_memory=False)
         
@@ -226,11 +239,11 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
 
         data_frames.append(df)
         
-        print(f'Finished processing folder \'{folder}\'; DF shape: {df.shape}.\n')
+        logger.info(f'Finished processing folder \'{folder}\'; DF shape: {df.shape}.\n')
 
     df_c = pd.concat(data_frames)
 
-    print(f"Value counts before replacing labels:")
+    logger.info(f"Value counts before replacing labels:")
     _pretty_print_value_counts(df_c, 'label')
 
     _replace_values(df_c, 'duration',   '-',                                                       np.float64(0.0))
@@ -265,7 +278,7 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
     _replace_values(df_c, 'label',      '(empty)   Malicious   PartOfAHorizontalPortScan',         'PartOfAHorizontalPortScan')
     _replace_values(df_c, 'label',      '-   Malicious   PartOfAHorizontalPortScan-Attack',        'PartOfAHorizontalPortScan-Attack')
 
-    print(f"\nValue counts after replacing labels:")
+    logger.info(f"\nValue counts after replacing labels:")
     _pretty_print_value_counts(df_c, 'label')
 
     df_c = df_c.infer_objects().astype({
@@ -298,25 +311,25 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
 
     df_c = _sort_columns(df_c, ['label'])
 
-    print(f"Performing baseline evaluation and plotting feature importances before feature selection:")
+    logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'label')
     _plot_feature_importances(df_c, 'label', work_folder)
     df_c.info()
 
     df_c = _select_relevant_features(df_c, 'label', 10)
 
-    print(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
+    logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
     _baseline_evaluation(df_c, 'label')
     _plot_feature_importances(df_c, 'label', work_folder)
     df_c.info()
 
     X_train, X_test, y_train, y_test = _train_test_split(df_c, 'label', 0.2, True, 10)
 
-    print(f"\nFinal value counts:")
+    logger.info(f"\nFinal value counts:")
     _pretty_print_value_counts(df_c, 'label')
 
-    print('\nX_train', X_train.shape, '\ny_train', y_train.shape, '\nunique values', set(y_train))
-    print('\nX_test', X_test.shape, '\ny_test', y_test.shape, '\nunique values', set(y_test))
+    logger.info(f'X_train shape: {X_train.shape}; y_train shape: {y_train.shape}; y_train unique values: {set(y_train)}')
+    logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
     if persist:
         _persist_mappings(mappings, work_folder)
@@ -338,7 +351,7 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
         
         full_filename = os.path.join(work_folder, base_filename)
 
-        print(f'Started processing file \'{base_filename}\'.')
+        logger.info(f'Started processing file \'{base_filename}\'.')
         
         df = pd.read_csv(filepath_or_buffer=full_filename, header=0, nrows=rows_limit, low_memory=False)
         
@@ -389,11 +402,11 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
 
         data_frames.append(df)
         
-        print(f'Finished processing file \'{full_filename}\'; DF shape: {df.shape}.\n')
+        logger.info(f'Finished processing file \'{full_filename}\'; DF shape: {df.shape}.\n')
 
     df_c = pd.concat(data_frames)
 
-    print(f"Initial value counts:")
+    logger.info(f"Initial value counts:")
     _pretty_print_value_counts(df_c, 'is_attack')
     
     cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
@@ -440,25 +453,25 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
 
     df_c = _sort_columns(df_c, ['is_attack'])
     
-    print(f"Performing baseline evaluation and plotting feature importances before feature selection:")
+    logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'is_attack')
     _plot_feature_importances(df_c, 'is_attack', work_folder)
     df_c.info()
 
     df_c = _select_relevant_features(df_c, 'is_attack', 10)
 
-    print(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
+    logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
     _baseline_evaluation(df_c, 'is_attack')
     _plot_feature_importances(df_c, 'is_attack', work_folder)
     df_c.info()
 
     X_train, X_test, y_train, y_test = _train_test_split(df_c, 'is_attack', 0.2, True, 10)
 
-    print(f"\nFinal value counts:")
+    logger.info(f"\nFinal value counts:")
     _pretty_print_value_counts(df_c, 'is_attack')
 
-    print('\nX_train', X_train.shape, '\ny_train', y_train.shape, '\nunique values', set(y_train))
-    print('\nX_test', X_test.shape, '\ny_test', y_test.shape, '\nunique values', set(y_test))
+    logger.info(f'X_train shape: {X_train.shape}; y_train shape: {y_train.shape}; y_train unique values: {set(y_train)}')
+    logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
     if persist:
         _persist_mappings(mappings, work_folder)
