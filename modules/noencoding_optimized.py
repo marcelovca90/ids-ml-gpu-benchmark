@@ -198,7 +198,7 @@ for classifier_name in CLASSIFIER_NAMES:
         else:
             n_jobs = n_parallel
 
-        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_parallel, callbacks=[early_stopping], catch=(ValueError,), gc_after_trial=True)        
+        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, callbacks=[early_stopping], catch=(ValueError,), gc_after_trial=True)
 
     except EarlyStoppingExceeded:
         print(f'EarlyStopping exceeded for {classifier_name}; no new best scores on iters {OPTUNA_EARLY_STOPING}.')
