@@ -1,0 +1,237 @@
+Scikit-learn was successfully globally patched by Intel(R) Extension for Scikit-learn
+Sequential-NoEncoding-Optimized.py - Execution started at 2022-10-18 17:24:19.
+X_train (1608679, 7) 
+y_train (1608679,) {0, 1, 2, 3, 4, 5, 6, 7, 8}
+X_test (402170, 7) 
+y_test (402170,) {0, 1, 2, 3, 4, 5, 6, 7, 8}
+Optimization batch started at 2022-10-18 17:24:20.
+Optimizing 30 classifiers.
+--------------------------------------------------------------------------------
+--------------------           AdaBoostClassifier           --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:24:20.
+EarlyStopping exceeded for AdaBoostClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:32:24.
+--------------------------------------------------------------------------------
+--------------------           AdaGradClassifier            --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:32:24.
+EarlyStopping exceeded for AdaGradClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:41:28.
+--------------------------------------------------------------------------------
+--------------------       BalancedBaggingClassifier        --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:41:28.
+EarlyStopping exceeded for BalancedBaggingClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:42:33.
+--------------------------------------------------------------------------------
+--------------------     BalancedRandomForestClassifier     --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:42:33.
+EarlyStopping exceeded for BalancedRandomForestClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:50:02.
+--------------------------------------------------------------------------------
+--------------------              BernoulliNB               --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:50:02.
+EarlyStopping exceeded for BernoulliNB; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:50:15.
+--------------------------------------------------------------------------------
+--------------------              CDClassifier              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:50:15.
+EarlyStopping exceeded for CDClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:57:00.
+--------------------------------------------------------------------------------
+--------------------              ComplementNB              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:57:00.
+EarlyStopping exceeded for ComplementNB; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:57:13.
+--------------------------------------------------------------------------------
+--------------------         DecisionTreeClassifier         --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:57:13.
+EarlyStopping exceeded for DecisionTreeClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:57:24.
+--------------------------------------------------------------------------------
+--------------------          ExtraTreeClassifier           --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:57:24.
+EarlyStopping exceeded for ExtraTreeClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 17:57:37.
+--------------------------------------------------------------------------------
+--------------------          ExtraTreesClassifier          --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 17:57:37.
+EarlyStopping exceeded for ExtraTreesClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 18:05:08.
+--------------------------------------------------------------------------------
+--------------------               GaussianNB               --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 18:05:08.
+Study with classifier GaussianNB failed. Reason: '<' not supported between instances of 'float' and 'NoneType'
+Study optimization finished at 2022-10-18 18:05:22.
+--------------------------------------------------------------------------------
+--------------------     HistGradientBoostingClassifier     --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 18:05:22.
+EarlyStopping exceeded for HistGradientBoostingClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 19:26:05.
+--------------------------------------------------------------------------------
+--------------------             LGBMClassifier             --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 19:26:05.
+EarlyStopping exceeded for LGBMClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 19:33:13.
+--------------------------------------------------------------------------------
+--------------------       LinearDiscriminantAnalysis       --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 19:33:13.
+EarlyStopping exceeded for LinearDiscriminantAnalysis; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 19:33:32.
+--------------------------------------------------------------------------------
+--------------------               LinearSVC                --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 19:33:32.
+EarlyStopping exceeded for LinearSVC; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 19:34:21.
+--------------------------------------------------------------------------------
+--------------------     LinearSVC_AdditiveChi2Sampler      --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 19:34:21.
+EarlyStopping exceeded for LinearSVC_AdditiveChi2Sampler; no new best scores on iters 20.
+Study optimization finished at 2022-10-18 19:40:23.
+--------------------------------------------------------------------------------
+--------------------           LinearSVC_Nystroem           --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-18 19:40:23.
+Study optimization finished at 2022-10-19 00:31:46.
+--------------------------------------------------------------------------------
+--------------------    LinearSVC_PolynomialCountSketch     --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 00:31:46.
+EarlyStopping exceeded for LinearSVC_PolynomialCountSketch; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 00:38:56.
+--------------------------------------------------------------------------------
+--------------------          LinearSVC_RBFSampler          --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 00:38:56.
+EarlyStopping exceeded for LinearSVC_RBFSampler; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 03:37:58.
+--------------------------------------------------------------------------------
+--------------------             MLPClassifier              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 03:37:58.
+EarlyStopping exceeded for MLPClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 04:47:11.
+--------------------------------------------------------------------------------
+--------------------             MultinomialNB              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 04:47:12.
+EarlyStopping exceeded for MultinomialNB; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 04:47:25.
+--------------------------------------------------------------------------------
+--------------------      PassiveAggressiveClassifier       --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 04:47:25.
+EarlyStopping exceeded for PassiveAggressiveClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 04:49:25.
+--------------------------------------------------------------------------------
+--------------------               Perceptron               --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 04:49:25.
+EarlyStopping exceeded for Perceptron; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 04:51:51.
+--------------------------------------------------------------------------------
+--------------------     QuadraticDiscriminantAnalysis      --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 04:51:51.
+EarlyStopping exceeded for QuadraticDiscriminantAnalysis; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 04:52:13.
+--------------------------------------------------------------------------------
+--------------------         RandomForestClassifier         --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 04:52:13.
+EarlyStopping exceeded for RandomForestClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 05:00:17.
+--------------------------------------------------------------------------------
+--------------------            RidgeClassifier             --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 05:00:18.
+EarlyStopping exceeded for RidgeClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 05:00:36.
+--------------------------------------------------------------------------------
+--------------------           RUSBoostClassifier           --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 05:00:36.
+EarlyStopping exceeded for RUSBoostClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 05:11:26.
+--------------------------------------------------------------------------------
+--------------------             SGDClassifier              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 05:11:26.
+EarlyStopping exceeded for SGDClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 05:22:06.
+--------------------------------------------------------------------------------
+--------------------    VeryFastDecisionRulesClassifier     --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 05:22:06.
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+No Nominal attributes have been defined, will consider all attributes as numerical
+Only one rule from the ordered set can be covered, rule prediction is set to first hit
+EarlyStopping exceeded for VeryFastDecisionRulesClassifier; no new best scores on iters 20.
+Study optimization finished at 2022-10-19 06:06:38.
+--------------------------------------------------------------------------------
+--------------------             XGBClassifier              --------------------
+--------------------------------------------------------------------------------
+Study optimization started at 2022-10-19 06:06:38.
+Study optimization finished at 2022-10-19 11:09:34.
+Optimization batch finished at 2022-10-19 11:09:34.
+Sequential-NoEncoding-Optimized.py - Execution finished at 2022-10-19 11:09:35.
