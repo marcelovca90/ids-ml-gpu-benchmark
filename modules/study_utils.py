@@ -46,8 +46,10 @@ def load_hdf(dataset_folder, filename):
     df = pd.read_hdf(path_or_buf=full_filename).infer_objects().to_numpy()
     return df.ravel() if df.shape[1] == 1 else df
 
+
 def truncate(data, limit=128*128):
     return data[:int(limit*0.8)]
+
 
 def sort_results(best_results):
     # best_results = dict(sorted(best_results.items()))
@@ -61,9 +63,11 @@ def sort_results(best_results):
             best_results[key] = 0.0
     return best_results
 
+
 def persist_best_results(file_prefix, uuid, best_results):
     with open(f'{file_prefix}_{uuid}.json', 'w') as fp:
         json.dump(best_results, fp)
+
 
 def plot_best_and_mean_results(file_prefix, uuid, best_results):
     # plot the best result for each classifier
@@ -99,13 +103,16 @@ def plot_best_and_mean_results(file_prefix, uuid, best_results):
     plt.savefig(f'{file_prefix}_{uuid}.png')
     plt.show(block=False)
 
+    
 EARLY_STOPPING_PATIENCE = 20
+
 
 class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
     early_stop = EARLY_STOPPING_PATIENCE
     early_stop_count = 0
     best_score = None
 
+    
 def early_stopping_callback(study, trial):
     if EarlyStoppingExceeded.best_score == None:
       EarlyStoppingExceeded.best_score = study.best_value
