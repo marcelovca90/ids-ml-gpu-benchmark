@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sys
 from calendar import c
 from collections import OrderedDict
@@ -35,6 +36,14 @@ def _baseline_evaluation(df, label_column='label'):
     cls.fit(X_train, y_train)
     logger.info(f"Shape: {df.shape} => Training Score: {cls.score(X_train, y_train)}")
     logger.info(f"Shape: {df.shape} => Test Score    : {cls.score(X_test, y_test)}\n")
+
+def _convert_to_int(x):
+    if '.' in x:
+        return int(float(x))
+    elif '0x' in x:
+        return int(x, 16)
+    else:
+        return int(x)
 
 def _drop_duplicates(df, create_count_column=False):
     if create_count_column:
@@ -187,14 +196,98 @@ def _sort_columns(df, rightmost_columns):
     logger.info(f'\nColumns sorted according to {final_cols}.\n')
     return df.reindex(columns=final_cols)
 
-def _train_test_split(df, label_column, test_size=0.2, filter_rows=False, n_folds=5):
+def _train_test_split(df, label_column, test_size=0.2, filter_rows=False, filter_n_folds=5):
     X, y = df.drop(columns=[label_column]), df[label_column]
     if filter_rows:
-        X, y = _filter_by_instance_hardness(X, y, n_folds)
+        X, y = _filter_by_instance_hardness(X, y, filter_n_folds)
     return train_test_split(X, y, test_size=test_size, random_state=SEED)
 
+def load_bot_iot(mode, rows_limit=None, persist=True, return_X_y=True):
+    work_folder = os.path.join(os.path.dirname(__file__), '../datasets/bot_iot/source/Entire Dataset/')
+    persist_folder = work_folder.replace('source/Entire Dataset', f'generated/{mode}')
+    csv_files = list(filter(lambda f: re.match(r'UNSW_2018_IoT_Botnet_Dataset_\d+.csv', f), os.listdir(work_folder)))
+    data_frames = []
+
+    columns_csv_filename = os.path.join(work_folder, 'UNSW_2018_IoT_Botnet_Dataset_Feature_Names.csv')
+    columns = [c.strip() for c in pd.read_csv(filepath_or_buffer=columns_csv_filename).columns]
+
+    for base_filename in csv_files:
+
+        full_filename = os.path.join(work_folder, base_filename)
+
+        logger.info(f'Started processing file \'{base_filename}\'.')
+
+        df = pd.read_csv(filepath_or_buffer=full_filename, names=columns, nrows=rows_limit, low_memory=False)
+
+        if mode == 'micro':
+            df['label'] = df['category'] + "_" + df['subcategory']
+        elif mode == 'macro':
+            df['label'] = df['category']
+
+        df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr', 'attack', 'category', 'subcategory'], inplace=True)
+
+        df = _drop_duplicates(df)
+
+        data_frames.append(df)
+
+        logger.info(f'Finished processing file \'{full_filename}\'; DF shape: {df.shape}.\n')
+
+    df_c = pd.concat(data_frames).infer_objects()
+
+    logger.info(f"Initial value counts:")
+    _pretty_print_value_counts(df_c, 'label')
+
+    cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
+    df_c[cols_with_na] = df_c[cols_with_na].fillna(0)
+
+    df_c['dport'] = df_c['dport'].astype('str').apply(lambda x : _convert_to_int(x))
+    df_c['sport'] = df_c['sport'].astype('str').apply(lambda x : _convert_to_int(x))
+
+    df_c = _drop_duplicates(df_c)
+
+    df_c = _filter_by_frequency(df_c, 'label', 0.001)
+
+    df_c = _one_hot_encode(df_c, 'flgs')
+    df_c = _one_hot_encode(df_c, 'proto')
+    df_c = _one_hot_encode(df_c, 'state')
+
+    df_c, mappings = _label_encode(df_c, 'label')
+
+    df_c = _sort_columns(df_c, ['label'])
+
+    logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
+    _baseline_evaluation(df_c, 'label')
+    _plot_feature_importances(df_c, 'label', persist_folder)
+    df_c.info()
+
+    df_c = _select_relevant_features(df_c, 'label', 10)
+
+    logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
+    _baseline_evaluation(df_c, 'label')
+    _plot_feature_importances(df_c, 'label', persist_folder)
+    df_c.info()
+
+    X_train, X_test, y_train, y_test = _train_test_split(df_c, 'label', 0.2, True, 10)
+
+    logger.info(f"\nFinal value counts:")
+    _pretty_print_value_counts(df_c, 'label')
+
+    logger.info(f'X_train shape: {X_train.shape}; y_train shape: {y_train.shape}; y_train unique values: {set(y_train)}')
+    logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
+
+    if persist:
+        _persist_mappings(mappings, persist_folder)
+        _persist_dataset(df_c, persist_folder, f'bot_iot_{mode}')
+        _persist_subsets(X_train, X_test, y_train, y_test, persist_folder)
+
+    if return_X_y:
+        return X_train, X_test, y_train, y_test
+    else:
+        return df_c
+
 def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
-    work_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/')
+    work_folder = os.path.join(os.path.dirname(__file__), '../datasets/iot_23/source/')
+    persist_folder = work_folder.replace('source', 'generated')
     sub_folders = filter(lambda x : ('bro' in x), [x[0] for x in os.walk(work_folder)])
     base_filename = 'conn.log.labeled'
     data_frames = []
@@ -313,14 +406,14 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
 
     logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'label')
-    _plot_feature_importances(df_c, 'label', work_folder)
+    _plot_feature_importances(df_c, 'label', persist_folder)
     df_c.info()
 
     df_c = _select_relevant_features(df_c, 'label', 10)
 
     logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
     _baseline_evaluation(df_c, 'label')
-    _plot_feature_importances(df_c, 'label', work_folder)
+    _plot_feature_importances(df_c, 'label', persist_folder)
     df_c.info()
 
     X_train, X_test, y_train, y_test = _train_test_split(df_c, 'label', 0.2, True, 10)
@@ -332,9 +425,9 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
     logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
     if persist:
-        _persist_mappings(mappings, work_folder)
-        _persist_dataset(df_c, work_folder, 'iot_23')
-        _persist_subsets(X_train, X_test, y_train, y_test, work_folder)
+        _persist_mappings(mappings, persist_folder)
+        _persist_dataset(df_c, persist_folder, 'iot_23')
+        _persist_subsets(X_train, X_test, y_train, y_test, persist_folder)
 
     if return_X_y:
         return X_train, X_test, y_train, y_test
@@ -342,8 +435,8 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
         return df_c
 
 def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
-	
-    work_folder = os.path.join(os.path.dirname(__file__), '../datasets/mqtt_iot_ids2020/')
+    work_folder = os.path.join(os.path.dirname(__file__), '../datasets/mqtt_iot_ids2020/source/')
+    persist_folder = work_folder.replace('source', 'generated')
     csv_files = list(filter(lambda f: f.endswith('.csv'), os.listdir(work_folder)))
     data_frames = []
 
@@ -410,7 +503,6 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
     _pretty_print_value_counts(df_c, 'is_attack')
 
     cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
-
     df_c[cols_with_na] = df_c[cols_with_na].fillna(0)
 
     df_c = df_c.infer_objects().astype({
@@ -455,14 +547,14 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
 
     logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'is_attack')
-    _plot_feature_importances(df_c, 'is_attack', work_folder)
+    _plot_feature_importances(df_c, 'is_attack', persist_folder)
     df_c.info()
 
     df_c = _select_relevant_features(df_c, 'is_attack', 10)
 
     logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
     _baseline_evaluation(df_c, 'is_attack')
-    _plot_feature_importances(df_c, 'is_attack', work_folder)
+    _plot_feature_importances(df_c, 'is_attack', persist_folder)
     df_c.info()
 
     X_train, X_test, y_train, y_test = _train_test_split(df_c, 'is_attack', 0.2, True, 10)
@@ -474,9 +566,9 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
     logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
     if persist:
-        _persist_mappings(mappings, work_folder)
-        _persist_dataset(df_c, work_folder, 'mqtt_iot_ids2020')
-        _persist_subsets(X_train, X_test, y_train, y_test, work_folder)
+        _persist_mappings(mappings, persist_folder)
+        _persist_dataset(df_c, persist_folder, 'mqtt_iot_ids2020')
+        _persist_subsets(X_train, X_test, y_train, y_test, persist_folder)
 
     if return_X_y:
         return X_train, X_test, y_train, y_test
@@ -484,8 +576,8 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
         return df_c
 
 def load_iot_network_intrusion(mode, rows_limit=None, persist=True, return_X_y=True):
-
-    work_folder = os.path.join(os.path.dirname(__file__), f'../datasets/iot_network_intrusion/{mode}/')
+    work_folder = os.path.join(os.path.dirname(__file__), f'../datasets/iot_network_intrusion/source/{mode}/')
+    persist_folder = work_folder.replace('source', 'generated')
     base_filename = f'iot_network_intrusion.csv'
     full_filename = os.path.join(work_folder, base_filename)
 
@@ -500,7 +592,6 @@ def load_iot_network_intrusion(mode, rows_limit=None, persist=True, return_X_y=T
     _pretty_print_value_counts(df_c, 'label')
 
     cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
-
     df_c[cols_with_na] = df_c[cols_with_na].fillna(0)
 
     df_c = df_c.infer_objects().astype({
@@ -546,14 +637,14 @@ def load_iot_network_intrusion(mode, rows_limit=None, persist=True, return_X_y=T
 
     logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'label')
-    _plot_feature_importances(df_c, 'label', work_folder)
+    _plot_feature_importances(df_c, 'label', persist_folder)
     df_c.info()
 
     df_c = _select_relevant_features(df_c, 'label', 10)
 
     logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
     _baseline_evaluation(df_c, 'label')
-    _plot_feature_importances(df_c, 'label', work_folder)
+    _plot_feature_importances(df_c, 'label', persist_folder)
     df_c.info()
 
     X_train, X_test, y_train, y_test = _train_test_split(df_c, 'label', 0.2, True, 10)
@@ -565,16 +656,15 @@ def load_iot_network_intrusion(mode, rows_limit=None, persist=True, return_X_y=T
     logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
 
     if persist:
-        _persist_mappings(mappings, work_folder)
-        _persist_dataset(df_c, work_folder, 'iot_network_intrusion')
-        _persist_subsets(X_train, X_test, y_train, y_test, work_folder)
+        _persist_mappings(mappings, persist_folder)
+        _persist_dataset(df_c, persist_folder, 'iot_network_intrusion')
+        _persist_subsets(X_train, X_test, y_train, y_test, persist_folder)
 
     if return_X_y:
         return X_train, X_test, y_train, y_test
     else:
         return df_c
 
-
 if __name__ == "__main__":
-    #load_iot_network_intrusion('micro', None, True, False)
-    load_iot_network_intrusion('macro', None, True, False)
+    load_bot_iot('macro', None, True, False)
+    load_bot_iot('micro', None, True, False)
