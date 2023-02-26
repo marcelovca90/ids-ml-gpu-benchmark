@@ -117,15 +117,15 @@ def _persist_dataset(df, base_folder, file_name, format='csv'):
 
 def _persist_subsets(X_train, X_test, y_train, y_test, base_folder, format='csv'):
     if format == 'csv':
-        pd.DataFrame(X_train).round(6).to_csv(os.path.join(base_folder, f'X_train.csv'), float_format='%g', header=None, index=None)
-        pd.DataFrame(X_test).round(6).to_csv(os.path.join(base_folder, f'X_test.csv'), float_format='%g', header=None, index=None)
-        pd.DataFrame(y_train).round(6).to_csv(os.path.join(base_folder, f'y_train.csv'), float_format='%g', header=None, index=None)
-        pd.DataFrame(y_test).round(6).to_csv(os.path.join(base_folder, f'y_test.csv'), float_format='%g', header=None, index=None)
+        pd.DataFrame(X_train).round(6).to_csv(os.path.join(base_folder, 'X_train.csv'), float_format='%g', header=None, index=None)
+        pd.DataFrame(X_test).round(6).to_csv(os.path.join(base_folder, 'X_test.csv'), float_format='%g', header=None, index=None)
+        pd.DataFrame(y_train).round(6).to_csv(os.path.join(base_folder, 'y_train.csv'), float_format='%g', header=None, index=None)
+        pd.DataFrame(y_test).round(6).to_csv(os.path.join(base_folder, 'y_test.csv'), float_format='%g', header=None, index=None)
     elif format == 'hdf':
-        pd.DataFrame(X_train).round(6).to_hdf(os.path.join(base_folder, f'X_train.h5'), 'X_train')
-        pd.DataFrame(X_test).round(6).to_hdf(os.path.join(base_folder, f'X_test.h5'), 'X_test',)
-        pd.DataFrame(y_train).round(6).to_hdf(os.path.join(base_folder, f'y_train.h5'), 'y_train')
-        pd.DataFrame(y_test).round(6).to_hdf(os.path.join(base_folder, f'y_test.h5'), 'y_test')
+        pd.DataFrame(X_train).round(6).to_hdf(os.path.join(base_folder, 'X_train.h5'), 'X_train')
+        pd.DataFrame(X_test).round(6).to_hdf(os.path.join(base_folder, 'X_test.h5'), 'X_test',)
+        pd.DataFrame(y_train).round(6).to_hdf(os.path.join(base_folder, 'y_train.h5'), 'y_train')
+        pd.DataFrame(y_test).round(6).to_hdf(os.path.join(base_folder, 'y_test.h5'), 'y_test')
     else:
         raise ValueError("Invalid format. It must be either 'csv' or 'hdf'.")
 
@@ -299,7 +299,7 @@ def load_iot_23(rows_limit=None, persist=True, return_X_y=True):
 
     # df_c = _filter_by_quantile(df_c, 'label')
 
-    df_c = _filter_by_frequency(df_c, 'label', 0.001) 
+    df_c = _filter_by_frequency(df_c, 'label', 0.001)
 
     df_c = _one_hot_encode(df_c, 'proto')
 
@@ -408,7 +408,7 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
 
     logger.info(f"Initial value counts:")
     _pretty_print_value_counts(df_c, 'is_attack')
-    
+
     cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
 
     df_c[cols_with_na] = df_c[cols_with_na].fillna(0)
@@ -445,14 +445,14 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
 
     df_c = _drop_duplicates(df_c)
 
-    df_c = _filter_by_frequency(df_c, 'is_attack', 0.001) 
+    df_c = _filter_by_frequency(df_c, 'is_attack', 0.001)
 
     df_c = _one_hot_encode(df_c, 'protocol')
 
     df_c, mappings = _label_encode(df_c, 'is_attack')
 
     df_c = _sort_columns(df_c, ['is_attack'])
-    
+
     logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
     _baseline_evaluation(df_c, 'is_attack')
     _plot_feature_importances(df_c, 'is_attack', work_folder)
@@ -483,6 +483,98 @@ def load_mqtt_iot_ids2020(rows_limit=None, persist=True, return_X_y=True):
     else:
         return df_c
 
+def load_iot_network_intrusion(mode, rows_limit=None, persist=True, return_X_y=True):
+
+    work_folder = os.path.join(os.path.dirname(__file__), f'../datasets/iot_network_intrusion/{mode}/')
+    base_filename = f'iot_network_intrusion.csv'
+    full_filename = os.path.join(work_folder, base_filename)
+
+    logger.info(f'Started processing file \'{base_filename}\'.')
+
+    # for capture files processing, refer to https://github.com/marcelovca90/iot-nid-pandas
+    df_c = pd.read_csv(filepath_or_buffer=full_filename, header=0, nrows=rows_limit, low_memory=False)
+
+    df_c.drop(columns=['ip.src', 'ip.dst'], inplace=True)
+
+    logger.info(f"Initial value counts:")
+    _pretty_print_value_counts(df_c, 'label')
+
+    cols_with_na = list(pd.isnull(df_c).sum()[pd.isnull(df_c).sum() > 0].index)
+
+    df_c[cols_with_na] = df_c[cols_with_na].fillna(0)
+
+    df_c = df_c.infer_objects().astype({
+        '_ws.col.Time'    : np.int64,
+        'frame.len'       : np.int64,
+        'frame.number'    : np.int64,
+        'icmp.code'       : np.uint8,
+        'icmp.length'     : np.uint8,
+        'icmp.type'       : np.uint8,
+        'ip.proto'        : np.uint8,
+        'ip.len'          : np.uint8,
+        'ip.ttl'          : np.uint8,
+        'ip.flags.df'     : np.uint8,
+        'ip.flags.mf'     : np.uint8,
+        'ip.flags.rb'     : np.uint8,
+        'ip.flags.sf'     : np.uint8,
+        'ip.version'      : np.uint8,
+        'tcp.flags.ack'   : np.uint8,
+        'tcp.flags.cwr'   : np.uint8,
+        'tcp.flags.ecn'   : np.uint8,
+        'tcp.flags.fin'   : np.uint8,
+        'tcp.flags.ns'    : np.uint8,
+        'tcp.flags.push'  : np.uint8,
+        'tcp.flags.res'   : np.uint8,
+        'tcp.flags.reset' : np.uint8,
+        'tcp.flags.syn'   : np.uint8,
+        'tcp.flags.urg'   : np.uint8,
+        'udp.length'      : np.uint8,
+        'udp.srcport'     : np.uint8,
+        'udp.dstport'     : np.uint8,
+        'label'           : 'category'
+    })
+
+    df_c = _drop_duplicates(df_c)
+
+    df_c = _filter_by_frequency(df_c, 'label', 0.001)
+
+    # df_c = _one_hot_encode(df_c, 'ip.proto')
+
+    df_c, mappings = _label_encode(df_c, 'label')
+
+    df_c = _sort_columns(df_c, ['label'])
+
+    logger.info(f"Performing baseline evaluation and plotting feature importances before feature selection:")
+    _baseline_evaluation(df_c, 'label')
+    _plot_feature_importances(df_c, 'label', work_folder)
+    df_c.info()
+
+    df_c = _select_relevant_features(df_c, 'label', 10)
+
+    logger.info(f"\nPerforming baseline evaluation and plotting feature importances after feature selection:")
+    _baseline_evaluation(df_c, 'label')
+    _plot_feature_importances(df_c, 'label', work_folder)
+    df_c.info()
+
+    X_train, X_test, y_train, y_test = _train_test_split(df_c, 'label', 0.2, True, 10)
+
+    logger.info(f"\nFinal value counts:")
+    _pretty_print_value_counts(df_c, 'label')
+
+    logger.info(f'X_train shape: {X_train.shape}; y_train shape: {y_train.shape}; y_train unique values: {set(y_train)}')
+    logger.info(f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
+
+    if persist:
+        _persist_mappings(mappings, work_folder)
+        _persist_dataset(df_c, work_folder, 'iot_network_intrusion')
+        _persist_subsets(X_train, X_test, y_train, y_test, work_folder)
+
+    if return_X_y:
+        return X_train, X_test, y_train, y_test
+    else:
+        return df_c
+
 
 if __name__ == "__main__":
-    load_mqtt_iot_ids2020(None, True, False)
+    #load_iot_network_intrusion('micro', None, True, False)
+    load_iot_network_intrusion('macro', None, True, False)
