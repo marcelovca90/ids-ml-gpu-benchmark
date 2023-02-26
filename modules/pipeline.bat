@@ -21,8 +21,10 @@ call %CONDAPATH%\Scripts\activate.bat %ENVPATH%
 
 rem Run a python script in that environment
 rem python data_loader.py
-python noencoding_baseline.py
-python noencoding_optimized.py
+python noencoding_baseline_macro.py
+python noencoding_baseline_micro.py
+python noencoding_optimized_macro.py
+python noencoding_optimized_micro.py
 
 rem Deactivate the environment
 call conda deactivate

@@ -15,7 +15,7 @@ from study_utils import (calculate_score, load_csv, load_mappings,
 
 QUICK_RUN      = False
 FILE_PREFIX    = 'noencoding-baseline'
-DATASET_FOLDER = '../datasets/DATASET_NAME/'
+DATASET_FOLDER = '../datasets/iot_network_intrusion/macro/'
 UUID           = str(uuid.uuid4())[:8]
 
 formatter = colorlog.ColoredFormatter("%(log_color)s[%(levelname)1.1s %(asctime)s]%(reset)s %(message)s")

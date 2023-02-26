@@ -19,8 +19,8 @@ QUICK_RUN      = False
 N_TRIALS       = 100
 TIMEOUT        = 60*60*4
 FILE_PREFIX    = 'noencoding-optimized'
-DATASET_FOLDER = '../datasets/DATASET_NAME/'
-UUID            = str(uuid.uuid4())[:8]
+DATASET_FOLDER = '../datasets/iot_network_intrusion/macro/'
+UUID           = str(uuid.uuid4())[:8]
 
 formatter = colorlog.ColoredFormatter("%(log_color)s[%(levelname)1.1s %(asctime)s]%(reset)s %(message)s")
 handler_stdout = logging.StreamHandler(stream=sys.stdout)
@@ -94,7 +94,7 @@ for classifier_name in CLASSIFIER_NAMES:
     logger.info(f"Study started.")
     try:
         n_jobs = get_n_jobs(classifier_name)
-        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, callbacks=[early_stopping_callback], catch=(ValueError,), gc_after_trial=True)
+        study.optimize(objective, timeout=TIMEOUT, n_trials=N_TRIALS, n_jobs=n_jobs, catch=(ValueError,), gc_after_trial=True)
     except EarlyStoppingExceeded:
         logger.info(f'EarlyStopping exceeded for {classifier_name}; no new best scores on iters {EARLY_STOPPING_PATIENCE}.')
     except Exception as e:

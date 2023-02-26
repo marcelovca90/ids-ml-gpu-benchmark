@@ -172,7 +172,7 @@ def _replace_values(df, column, old_value, new_value):
 def _select_relevant_features(df, label_column, n_folds=5):
     logger.info(f'\nPerforming {n_folds}-fold recursive feature elimination:')
     X, y = df.drop(columns=[label_column]).select_dtypes(include='number'), df[label_column]
-    rfecv = RFECV(estimator=ExtraTreeClassifier(random_state=SEED), cv=n_folds, verbose=1)
+    rfecv = RFECV(estimator=Ridge(random_state=SEED), cv=n_folds, verbose=1)
     rfecv.fit(X, y)
     feature_mask = X.columns[rfecv.get_support()]
     relevant_columns = [col for col in X.columns if col not in feature_mask]
