@@ -1,9 +1,10 @@
 import os
 from abc import ABC, abstractmethod
 
+import numpy as np
 from fastai.tabular.all import df_shrink
 from imblearn.under_sampling import TomekLinks
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from sklearn.model_selection import train_test_split
 from typing_extensions import Self
 
@@ -21,10 +22,10 @@ class BasePreprocessingPipeline(ABC):
         self.target: str = None
         self.mappings: dict = None
         self.seed = 42
-        self.X_train: DataFrame = None
-        self.X_test: DataFrame = None
-        self.y_train: DataFrame = None
-        self.y_test: DataFrame = None
+        self.X_train: np.ndarray = None
+        self.X_test: np.ndarray = None
+        self.y_train: np.ndarray = None
+        self.y_test: np.ndarray = None
 
     @abstractmethod
     def encode(self) -> None:
@@ -88,20 +89,24 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def train_test_split(self) -> None:
         X, y = self.data.drop(columns=[self.target]), self.data[self.target]
-        self.X_train, self.X_test, self.y_train, self.y_test = \
+        X_train, X_test, y_train, y_test = \
             train_test_split(X, y, test_size=0.2, random_state=self.seed)
+        self.X_train = X_train.to_numpy()
+        self.X_test = X_test.to_numpy()
+        self.y_train = y_train.to_numpy()
+        self.y_test = y_test.to_numpy()
 
     @function_call_logger
     def resample(self) -> None:
         log_print(
             f'Training data shape before resampling: ' +
-            '{self.X_train.shape} {self.y_train}')
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
         tomek = TomekLinks(sampling_strategy='auto')
         self.X_train, self.y_train = tomek.fit_resample(
             self.X_train, self.y_train)
         log_print(
             f'Training data shape after resampling: ' +
-            '{self.X_train.shape} {self.y_train}')
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
 
     @function_call_logger
     def setup(self) -> Self:
