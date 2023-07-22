@@ -1,0 +1,133 @@
+[32m[I 2023-03-05 05:44:20,538][0m Optimization for 15 classifiers started.[0m
+[32m[I 2023-03-05 05:44:28,955][0m X_train shape: (58658288, 17); y_train shape: (58658288,); y_train unique values: {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}[0m
+[32m[I 2023-03-05 05:44:29,423][0m X_test shape: (14664573, 17); y_test shape: (14664573,); y_test unique values: {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}[0m
+[32m[I 2023-03-05 05:44:29,424][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 05:44:29,424][0m --------------------       BalancedBaggingClassifier        --------------------[0m
+[32m[I 2023-03-05 05:44:29,424][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 05:44:29,535][0m A new study created in RDB with name: BalancedBaggingClassifier_d11a4998[0m
+[32m[I 2023-03-05 05:44:29,542][0m Study started.[0m
+[32m[I 2023-03-05 05:49:25,056][0m Trial 0 finished with value: 0.9490261262502875 and parameters: {}. Best is trial 0 with value: 0.949026.[0m
+[32m[I 2023-03-05 05:49:25,696][0m Study finished.[0m
+[32m[I 2023-03-05 05:49:25,701][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 05:49:25,701][0m --------------------     BalancedRandomForestClassifier     --------------------[0m
+[32m[I 2023-03-05 05:49:25,702][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 05:49:25,749][0m A new study created in RDB with name: BalancedRandomForestClassifier_d11a4998[0m
+[32m[I 2023-03-05 05:49:25,757][0m Study started.[0m
+[32m[I 2023-03-05 06:13:04,675][0m Trial 0 finished with value: 0.94368135921373 and parameters: {}. Best is trial 0 with value: 0.943681.[0m
+[32m[I 2023-03-05 06:13:04,756][0m Study finished.[0m
+[32m[I 2023-03-05 06:13:04,759][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:13:04,760][0m --------------------              BernoulliNB               --------------------[0m
+[32m[I 2023-03-05 06:13:04,760][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:13:04,792][0m A new study created in RDB with name: BernoulliNB_d11a4998[0m
+[32m[I 2023-03-05 06:13:04,797][0m Study started.[0m
+[32m[I 2023-03-05 06:14:14,403][0m Trial 0 finished with value: 0.631747663538098 and parameters: {}. Best is trial 0 with value: 0.631748.[0m
+[32m[I 2023-03-05 06:14:14,486][0m Study finished.[0m
+[32m[I 2023-03-05 06:14:14,491][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:14:14,491][0m --------------------              ComplementNB              --------------------[0m
+[32m[I 2023-03-05 06:14:14,491][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:14:14,528][0m A new study created in RDB with name: ComplementNB_d11a4998[0m
+[32m[I 2023-03-05 06:14:14,540][0m Study started.[0m
+[33m[W 2023-03-05 06:14:23,461][0m Trial 0 failed because of the following error: ValueError('Negative values in data passed to ComplementNB (input X)')[0m
+Traceback (most recent call last):
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\optuna\study\_optimize.py", line 213, in _run_trial
+    value_or_values = func(trial)
+  File "C:\Users\marce\git\iot-threat-classifier\modules\noencoding_baseline_micro_featurewiz_pca.py", line 56, in objective
+    classifier_obj.fit(X_train, y_train)
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\naive_bayes.py", line 776, in fit
+    self._count(X, Y)
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\naive_bayes.py", line 1044, in _count
+    check_non_negative(X, "ComplementNB (input X)")
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\utils\validation.py", line 1418, in check_non_negative
+    raise ValueError("Negative values in data passed to %s" % whom)
+ValueError: Negative values in data passed to ComplementNB (input X)
+[32m[I 2023-03-05 06:14:23,646][0m Study finished.[0m
+[32m[I 2023-03-05 06:14:23,653][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:14:23,654][0m --------------------         DecisionTreeClassifier         --------------------[0m
+[32m[I 2023-03-05 06:14:23,654][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:14:23,720][0m A new study created in RDB with name: DecisionTreeClassifier_d11a4998[0m
+[32m[I 2023-03-05 06:14:23,732][0m Study started.[0m
+[32m[I 2023-03-05 06:40:00,106][0m Trial 0 finished with value: 0.9997148067070356 and parameters: {}. Best is trial 0 with value: 0.999715.[0m
+[32m[I 2023-03-05 06:40:00,187][0m Study finished.[0m
+[32m[I 2023-03-05 06:40:00,190][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:40:00,190][0m --------------------          ExtraTreeClassifier           --------------------[0m
+[32m[I 2023-03-05 06:40:00,190][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:40:00,218][0m A new study created in RDB with name: ExtraTreeClassifier_d11a4998[0m
+[32m[I 2023-03-05 06:40:00,224][0m Study started.[0m
+[32m[I 2023-03-05 06:42:23,853][0m Trial 0 finished with value: 0.9996303230716914 and parameters: {}. Best is trial 0 with value: 0.99963.[0m
+[32m[I 2023-03-05 06:42:23,933][0m Study finished.[0m
+[32m[I 2023-03-05 06:42:23,937][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:42:23,937][0m --------------------          ExtraTreesClassifier          --------------------[0m
+[32m[I 2023-03-05 06:42:23,937][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 06:42:23,962][0m A new study created in RDB with name: ExtraTreesClassifier_d11a4998[0m
+[32m[I 2023-03-05 06:42:23,967][0m Study started.[0m
+[32m[I 2023-03-05 09:44:09,072][0m Trial 0 finished with value: 0.9998511492178562 and parameters: {}. Best is trial 0 with value: 0.999851.[0m
+[32m[I 2023-03-05 09:44:09,163][0m Study finished.[0m
+[32m[I 2023-03-05 09:44:09,167][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 09:44:09,167][0m --------------------               GaussianNB               --------------------[0m
+[32m[I 2023-03-05 09:44:09,167][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 09:44:09,193][0m A new study created in RDB with name: GaussianNB_d11a4998[0m
+[32m[I 2023-03-05 09:44:09,199][0m Study started.[0m
+[32m[I 2023-03-05 09:45:24,060][0m Trial 0 finished with value: 0.6389210547752404 and parameters: {}. Best is trial 0 with value: 0.638921.[0m
+[32m[I 2023-03-05 09:45:24,142][0m Study finished.[0m
+[32m[I 2023-03-05 09:45:24,145][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 09:45:24,146][0m --------------------             LGBMClassifier             --------------------[0m
+[32m[I 2023-03-05 09:45:24,146][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 09:45:24,170][0m A new study created in RDB with name: LGBMClassifier_d11a4998[0m
+[32m[I 2023-03-05 09:45:24,175][0m Study started.[0m
+[32m[I 2023-03-05 11:00:41,446][0m Trial 0 finished with value: 0.9412993760070889 and parameters: {}. Best is trial 0 with value: 0.941299.[0m
+[32m[I 2023-03-05 11:00:41,534][0m Study finished.[0m
+[32m[I 2023-03-05 11:00:41,542][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:00:41,543][0m --------------------       LinearDiscriminantAnalysis       --------------------[0m
+[32m[I 2023-03-05 11:00:41,544][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:00:41,575][0m A new study created in RDB with name: LinearDiscriminantAnalysis_d11a4998[0m
+[32m[I 2023-03-05 11:00:41,580][0m Study started.[0m
+[32m[I 2023-03-05 11:04:44,753][0m Trial 0 finished with value: 0.6678422305943159 and parameters: {}. Best is trial 0 with value: 0.667842.[0m
+[32m[I 2023-03-05 11:04:45,204][0m Study finished.[0m
+[32m[I 2023-03-05 11:04:45,213][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:04:45,213][0m --------------------             MultinomialNB              --------------------[0m
+[32m[I 2023-03-05 11:04:45,213][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:04:45,334][0m A new study created in RDB with name: MultinomialNB_d11a4998[0m
+[32m[I 2023-03-05 11:04:45,344][0m Study started.[0m
+[33m[W 2023-03-05 11:05:22,386][0m Trial 0 failed because of the following error: ValueError('Negative values in data passed to MultinomialNB (input X)')[0m
+Traceback (most recent call last):
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\optuna\study\_optimize.py", line 213, in _run_trial
+    value_or_values = func(trial)
+  File "C:\Users\marce\git\iot-threat-classifier\modules\noencoding_baseline_micro_featurewiz_pca.py", line 56, in objective
+    classifier_obj.fit(X_train, y_train)
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\naive_bayes.py", line 776, in fit
+    self._count(X, Y)
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\naive_bayes.py", line 898, in _count
+    check_non_negative(X, "MultinomialNB (input X)")
+  File "C:\Users\marce\anaconda3\envs\tf\lib\site-packages\sklearn\utils\validation.py", line 1418, in check_non_negative
+    raise ValueError("Negative values in data passed to %s" % whom)
+ValueError: Negative values in data passed to MultinomialNB (input X)
+[32m[I 2023-03-05 11:05:22,521][0m Study finished.[0m
+[32m[I 2023-03-05 11:05:22,524][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:05:22,525][0m --------------------     QuadraticDiscriminantAnalysis      --------------------[0m
+[32m[I 2023-03-05 11:05:22,525][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:05:22,560][0m A new study created in RDB with name: QuadraticDiscriminantAnalysis_d11a4998[0m
+[32m[I 2023-03-05 11:05:22,566][0m Study started.[0m
+[32m[I 2023-03-05 11:07:13,281][0m Trial 0 finished with value: 0.982140038257809 and parameters: {}. Best is trial 0 with value: 0.98214.[0m
+[32m[I 2023-03-05 11:07:13,366][0m Study finished.[0m
+[32m[I 2023-03-05 11:07:13,369][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:07:13,370][0m --------------------         RandomForestClassifier         --------------------[0m
+[32m[I 2023-03-05 11:07:13,370][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 11:07:13,404][0m A new study created in RDB with name: RandomForestClassifier_d11a4998[0m
+[32m[I 2023-03-05 11:07:13,410][0m Study started.[0m
+[32m[I 2023-03-05 16:58:09,296][0m Trial 0 finished with value: 0.9998199177191037 and parameters: {}. Best is trial 0 with value: 0.99982.[0m
+[32m[I 2023-03-05 16:58:09,384][0m Study finished.[0m
+[32m[I 2023-03-05 16:58:09,388][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 16:58:09,389][0m --------------------            RidgeClassifier             --------------------[0m
+[32m[I 2023-03-05 16:58:09,389][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 16:58:09,419][0m A new study created in RDB with name: RidgeClassifier_d11a4998[0m
+[32m[I 2023-03-05 16:58:09,425][0m Study started.[0m
+[32m[I 2023-03-05 16:59:53,154][0m Trial 0 finished with value: 0.6282306746759552 and parameters: {}. Best is trial 0 with value: 0.628231.[0m
+[32m[I 2023-03-05 16:59:54,398][0m Study finished.[0m
+[32m[I 2023-03-05 16:59:54,439][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 16:59:54,440][0m --------------------    VeryFastDecisionRulesClassifier     --------------------[0m
+[32m[I 2023-03-05 16:59:54,440][0m --------------------------------------------------------------------------------[0m
+[32m[I 2023-03-05 16:59:55,556][0m A new study created in RDB with name: VeryFastDecisionRulesClassifier_d11a4998[0m
+[32m[I 2023-03-05 16:59:55,617][0m Study started.[0m
+[32m[I 2023-03-05 20:54:04,572][0m Trial 0 finished with value: 0.9885491373000997 and parameters: {}. Best is trial 0 with value: 0.988549.[0m
+[32m[I 2023-03-05 20:54:04,695][0m Study finished.[0m
+[32m[I 2023-03-05 20:54:05,465][0m Baselining finished.[0m
