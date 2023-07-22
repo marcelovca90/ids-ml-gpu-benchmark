@@ -30,7 +30,7 @@ class IoT_23(BasePreprocessingPipeline):
             full_filename = os.path.join(folder, base_filename)
             log_print(f'Started processing folder \'{folder}\'.')
             df = pd.read_table(filepath_or_buffer=full_filename,
-                               skiprows=8, nrows=None, low_memory=False)
+                               skiprows=8, nrows=1000, low_memory=False)
             df.columns = ['ts', 'uid', 'id.orig_h', 'id.orig_p', 'id.resp_h',
                           'id.resp_p', 'proto', 'service', 'duration',
                           'orig_bytes', 'resp_bytes', 'conn_state',

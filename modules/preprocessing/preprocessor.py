@@ -1,9 +1,11 @@
+
 import json
 import os
 from abc import ABC, abstractmethod
 
 import numpy as np
 from fastai.tabular.all import df_shrink
+from featurewiz import FeatureWiz
 from imblearn.under_sampling import TomekLinks
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
@@ -72,6 +74,18 @@ class BasePreprocessingPipeline(ABC):
             json.dump(self.mappings, fp)
         log_print(f'Mappings persisted to \'{json_filename}\'.')
 
+    @function_call_logger
+    def select_features(self) -> None:
+        log_print(f'Performing feature selection with FeatureWiz...')
+        X, y = self.data.drop(columns=[self.target]), self.data[self.target]
+        wiz = FeatureWiz(corr_limit=0.90, skip_sulov=False, verbose=0)
+        wiz.fit(X, y)
+        relevant_columns = [col for col in X.columns if col in wiz.features]
+        log_print(f'Features that will be kept: {str(relevant_columns)}')
+        irrelevant_cols = [col for col in X.columns if col not in wiz.features]
+        log_print(f'Features that will be dropped: {str(irrelevant_cols)}')
+        return self.data.drop(columns=irrelevant_cols)
+
     @abstractmethod
     def set_dtypes(self) -> None:
         pass
@@ -124,6 +138,7 @@ class BasePreprocessingPipeline(ABC):
         self.encode()
         self.sort_columns()
         self.shrink_dtypes()
+        self.select_features()
         self.train_test_split()
         self.resample()
         self.save()
