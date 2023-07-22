@@ -40,6 +40,8 @@ class IoT_23(BasePreprocessingPipeline):
             df = df.drop(columns=['ts', 'uid', 'service', 'local_orig',
                          'local_resp', 'history', 'id.orig_h', 'id.resp_h'])
             df = df.drop(df.tail(1).index)
+            df = df.drop_duplicates()
+            df = df.dropna(axis='index')
             data_frames.append(df)
             log_print(f'Finished processing folder \'{folder}\'.')
         self.data = pd.concat(data_frames, copy=False)

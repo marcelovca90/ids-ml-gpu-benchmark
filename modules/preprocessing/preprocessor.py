@@ -1,10 +1,11 @@
+import json
 import os
 from abc import ABC, abstractmethod
 
 import numpy as np
 from fastai.tabular.all import df_shrink
 from imblearn.under_sampling import TomekLinks
-from pandas import DataFrame, Series
+from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 from typing_extensions import Self
 
@@ -64,6 +65,12 @@ class BasePreprocessingPipeline(ABC):
             os.getcwd(), self.folder, 'generated', self.name + '.parquet')
         log_print(f'Persisting Parquet to \'{parquet_filename}\'...')
         self.data.to_parquet(path=parquet_filename, index=False)
+        json_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'mappings.json')
+        log_print(f'Persisting mappings to \'{json_filename}\'...')
+        with open(json_filename, 'w') as fp:
+            json.dump(self.mappings, fp)
+        log_print(f'Mappings persisted to \'{json_filename}\'.')
 
     @abstractmethod
     def set_dtypes(self) -> None:
