@@ -36,30 +36,6 @@ class BasePreprocessingPipeline(ABC):
         self.y_train: np.ndarray = None
         self.y_test: np.ndarray = None
 
-    @abstractmethod
-    def encode(self) -> None:
-        pass
-
-    @function_call_logger
-    def filter(self) -> None:
-        log_print(f"Value counts before filtering by frequency:")
-        log_value_counts(self.data, self.target)
-        vcd = self.data[self.target].value_counts(normalize=True).to_dict()
-        kept_labels = [key for key, val in vcd.items() if val > 0.01/100.0]
-        log_print(f'Dropping labels with frequency inferior to 0.01% ...')
-        filtered_labels = self.data[self.target].value_counts(
-        ).index.drop(kept_labels)
-        for label in filtered_labels:
-            self.data = self.data.drop(
-                self.data[self.data[self.target] == label].index)
-        self.data.reset_index(drop=True, inplace=True)
-        log_print(f"Value counts after filtering by frequency:")
-        log_value_counts(self.data, self.target)
-
-    @abstractmethod
-    def load(self) -> None:
-        pass
-
     @function_call_logger
     def preload(self) -> None:
         base_path = os.path.join(os.getcwd(), self.folder, 'generated')
@@ -79,57 +55,43 @@ class BasePreprocessingPipeline(ABC):
         pass
 
     @abstractmethod
-    def sanitize(self) -> None:
+    def load(self) -> None:
         pass
 
-    @function_call_logger
-    def save(self) -> None:
-        # Dataset
-        dataset_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', self.name + '.parquet')
-        log_print(f'Persisting dataset to \'{dataset_filename}\'...')
-        self.data.to_parquet(path=dataset_filename, index=False)
-        # Train data
-        X_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_train.npy')
-        log_print(f'Persisting X_train to \'{X_train_filename}\'...')
-        np.save(file=X_train_filename, arr=self.X_train)
-        y_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_train.npy')
-        log_print(f'Persisting y_train to \'{y_train_filename}\'...')
-        np.save(file=y_train_filename, arr=self.y_train)
-        # Test data
-        X_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_test.npy')
-        log_print(f'Persisting X_test to \'{X_test_filename}\'...')
-        np.save(file=X_test_filename, arr=self.X_test)
-        y_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_test.npy')
-        log_print(f'Persisting y_test to \'{y_test_filename}\'...')
-        np.save(file=y_test_filename, arr=self.y_test)
-        # Mappings
-        json_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'mappings.json')
-        log_print(f'Persisting mappings to \'{json_filename}\'...')
-        with open(json_filename, 'w') as fp:
-            json.dump(self.mappings, fp)
-        log_print(f'Mappings persisted to \'{json_filename}\'.')
-
-    @function_call_logger
-    def select_features(self) -> None:
-        log_print(f'Performing feature selection with FeatureWiz...')
-        X, y = self.data.drop(columns=[self.target]), self.data[self.target]
-        wiz = FeatureWiz(corr_limit=0.90, skip_sulov=False, verbose=0)
-        wiz.fit(X, y)
-        relevant_columns = [col for col in X.columns if col in wiz.features]
-        log_print(f'Features that will be kept: {str(relevant_columns)}')
-        irrelevant_cols = [col for col in X.columns if col not in wiz.features]
-        log_print(f'Features that will be dropped: {str(irrelevant_cols)}')
-        return self.data.drop(columns=irrelevant_cols)
+    @abstractmethod
+    def sanitize(self) -> None:
+        pass
 
     @abstractmethod
     def set_dtypes(self) -> None:
         pass
+
+    @function_call_logger
+    def filter(self) -> None:
+        log_print(f"Value counts before filtering by frequency:")
+        log_value_counts(self.data, self.target)
+        vcd = self.data[self.target].value_counts(normalize=True).to_dict()
+        kept_labels = [key for key, val in vcd.items() if val > 0.01/100.0]
+        log_print(f'Dropping labels with frequency inferior to 0.01% ...')
+        filtered_labels = self.data[self.target].value_counts(
+        ).index.drop(kept_labels)
+        for label in filtered_labels:
+            self.data = self.data.drop(
+                self.data[self.data[self.target] == label].index)
+        self.data.reset_index(drop=True, inplace=True)
+        log_print(f"Value counts after filtering by frequency:")
+        log_value_counts(self.data, self.target)
+
+    @abstractmethod
+    def encode(self) -> None:
+        pass
+
+    @function_call_logger
+    def sort_columns(self) -> None:
+        cols = [x for x in self.data.columns.values if x not in [self.target]]
+        cols.extend([self.target])
+        log_print(f'Columns sorted according to {cols}.')
+        self.data = self.data.reindex(columns=cols)
 
     @function_call_logger
     def shrink_dtypes(self) -> None:
@@ -142,11 +104,16 @@ class BasePreprocessingPipeline(ABC):
         log_memory_usage(self.data)
 
     @function_call_logger
-    def sort_columns(self) -> None:
-        cols = [x for x in self.data.columns.values if x not in [self.target]]
-        cols.extend([self.target])
-        log_print(f'Columns sorted according to {cols}.')
-        self.data = self.data.reindex(columns=cols)
+    def select_features(self) -> None:
+        log_print(f'Performing feature selection with FeatureWiz...')
+        X, y = self.data.drop(columns=[self.target]), self.data[self.target]
+        wiz = FeatureWiz(corr_limit=0.90, skip_sulov=False, verbose=0)
+        wiz.fit(X, y)
+        relevant_columns = [col for col in X.columns if col in wiz.features]
+        log_print(f'Features that will be kept: {str(relevant_columns)}')
+        irrelevant_cols = [col for col in X.columns if col not in wiz.features]
+        log_print(f'Features that will be dropped: {str(irrelevant_cols)}')
+        return self.data.drop(columns=irrelevant_cols)
 
     @function_call_logger
     def train_test_split(self) -> None:
@@ -213,6 +180,39 @@ class BasePreprocessingPipeline(ABC):
         log_print(
             f'Training data shape after resampling: ' +
             f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+    @function_call_logger
+    def save(self) -> None:
+        # Dataset
+        dataset_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', self.name + '.parquet')
+        log_print(f'Persisting dataset to \'{dataset_filename}\'...')
+        self.data.to_parquet(path=dataset_filename, index=False)
+        # Train data
+        X_train_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'X_train.npy')
+        log_print(f'Persisting X_train to \'{X_train_filename}\'...')
+        np.save(file=X_train_filename, arr=self.X_train)
+        y_train_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'y_train.npy')
+        log_print(f'Persisting y_train to \'{y_train_filename}\'...')
+        np.save(file=y_train_filename, arr=self.y_train)
+        # Test data
+        X_test_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'X_test.npy')
+        log_print(f'Persisting X_test to \'{X_test_filename}\'...')
+        np.save(file=X_test_filename, arr=self.X_test)
+        y_test_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'y_test.npy')
+        log_print(f'Persisting y_test to \'{y_test_filename}\'...')
+        np.save(file=y_test_filename, arr=self.y_test)
+        # Mappings
+        json_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'mappings.json')
+        log_print(f'Persisting mappings to \'{json_filename}\'...')
+        with open(json_filename, 'w') as fp:
+            json.dump(self.mappings, fp)
+        log_print(f'Mappings persisted to \'{json_filename}\'.')
 
     @function_call_logger
     def pipeline(self, preload=False, prepare=False) -> Self:
