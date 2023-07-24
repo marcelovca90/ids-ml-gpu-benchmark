@@ -12,6 +12,9 @@ import colorlog
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import psutil
+import pyarrow as pa
+import pyarrow.parquet as pq
 from featurewiz import FeatureWiz
 from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import SMOTE
@@ -40,6 +43,20 @@ def _baseline_evaluation(df, label_column='label'):
         f"Shape: {df.shape} => Training Score: {cls.score(X_train, y_train)}")
     log_print(
         f"Shape: {df.shape} => Test Score    : {cls.score(X_test, y_test)}")
+
+
+def _determine_best_chunksize(csv_file, sep, comment, target_memory_usage=0.8):
+    # Get total number of rows in the CSV file
+    total_rows = sum(1 for line in open(csv_file))
+    # Calculate approximate memory usage for a single chunk with one row
+    sample_chunk = pd.read_csv(csv_file, sep=sep, comment=comment, nrows=1)
+    memory_per_row = sample_chunk.memory_usage(deep=True).sum() / 1024**2
+    # Get available system memory
+    available_memory = psutil.virtual_memory().available
+    available_memory = available_memory / (1024**2)
+    # Calculate the chunksize based on available memory and target memory usage
+    chunksize = int((available_memory * target_memory_usage) / memory_per_row)
+    return min(chunksize, total_rows)
 
 
 def _convert_to_int(x):

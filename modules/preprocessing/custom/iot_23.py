@@ -1,12 +1,21 @@
 import os
+import tempfile
+from itertools import islice
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+import polars as pl
+import pyarrow as pa
+import pyarrow.csv as csv
+import pyarrow.parquet as pq
+from tqdm import tqdm
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_data_types, log_value_counts
-from modules.preprocessing.utils import (_label_encode, _one_hot_encode,
+from modules.preprocessing.utils import (_determine_best_chunksize,
+                                         _label_encode, _one_hot_encode,
                                          _replace_values)
 
 
@@ -19,31 +28,69 @@ class IoT_23(BasePreprocessingPipeline):
         self.target = 'label'
 
     @function_call_logger
-    def load(self) -> None:
+    def prepare(self) -> None:
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
         def filter_fn(x): return ('bro' in x)
         all_folders = [x[0] for x in os.walk(work_folder)]
         sub_folders = filter(filter_fn, all_folders)
         base_filename = 'conn.log.labeled'
+
+        for folder in sub_folders:
+
+            csv_filename = os.path.join(folder, base_filename)
+            parquet_filename = csv_filename.replace('.labeled', '.parquet')
+            col_names = ['ts', 'uid', 'id.orig_h', 'id.orig_p', 'id.resp_h',
+                         'id.resp_p', 'proto', 'service', 'duration',
+                         'orig_bytes', 'resp_bytes', 'conn_state',
+                         'local_orig', 'local_resp', 'missed_bytes', 'history',
+                         'orig_pkts', 'orig_ip_bytes', 'resp_pkts',
+                         'resp_ip_bytes', 'label']
+            col_drops = ['ts', 'uid', 'service', 'local_orig',
+                         'local_resp', 'history', 'id.orig_h', 'id.resp_h']
+
+            log_print(f'Started converting file in \'{folder}\' to parquet.')
+
+            # Get the total number of lines in the CSV file for progress bar
+            chunk_size = _determine_best_chunksize(csv_filename, '\t', '#')
+            total_lines = sum(1 for _ in open(csv_filename))
+            num_iters = total_lines // chunk_size
+
+            # Define the CSV reader with the specified chunksize and comment
+            csv_reader = pd.read_csv(csv_filename, sep='\t',  comment='#',
+                                     chunksize=chunk_size, dtype=str,
+                                     na_values='', names=col_names)
+
+            # Create a Parquet writer using the first chunk to set the schema
+            first_chunk = next(csv_reader).drop(columns=col_drops)
+            table = pa.Table.from_pandas(first_chunk)
+            with pq.ParquetWriter(parquet_filename, table.schema) as writer:
+                writer.write_table(table)
+                # Process each chunk of data and append to the Parquet file
+                for chunk in tqdm(csv_reader, total=num_iters, unit='chunk'):
+                    # Convert chunk to Arrow table
+                    table = pa.Table.from_pandas(
+                        chunk.drop(columns=col_drops), schema=table.schema)
+                    writer.write_table(table)
+
+            log_print(f'Finished converting file in \'{folder}\' to parquet.')
+
+    @function_call_logger
+    def load(self) -> None:
+        work_folder = os.path.join(os.getcwd(), self.folder, 'source')
+        def filter_fn(x): return ('bro' in x)
+        all_folders = [x[0] for x in os.walk(work_folder)]
+        sub_folders = filter(filter_fn, all_folders)
+        base_filename = 'conn.log.parquet'
         data_frames = []
         for folder in sub_folders:
             full_filename = os.path.join(folder, base_filename)
-            log_print(f'Started processing folder \'{folder}\'.')
-            df = pd.read_table(filepath_or_buffer=full_filename,
-                               skiprows=8, nrows=1000, low_memory=False)
-            df.columns = ['ts', 'uid', 'id.orig_h', 'id.orig_p', 'id.resp_h',
-                          'id.resp_p', 'proto', 'service', 'duration',
-                          'orig_bytes', 'resp_bytes', 'conn_state',
-                          'local_orig', 'local_resp', 'missed_bytes',
-                          'history', 'orig_pkts', 'orig_ip_bytes', 'resp_pkts',
-                          'resp_ip_bytes', self.target]
-            df = df.drop(columns=['ts', 'uid', 'service', 'local_orig',
-                         'local_resp', 'history', 'id.orig_h', 'id.resp_h'])
-            df = df.drop(df.tail(1).index)
+            log_print(f'Started loading parquet files in \'{folder}\'.')
+            df = pd.read_parquet(
+                full_filename, engine='pyarrow').sample(frac=0.1)
             df = df.drop_duplicates()
-            df = df.dropna(axis='index')
+            df = df.dropna()
             data_frames.append(df)
-            log_print(f'Finished processing folder \'{folder}\'.')
+            log_print(f'Finished loading parquet files in \'{folder}\'.')
         self.data = pd.concat(data_frames, copy=False)
 
     @function_call_logger
