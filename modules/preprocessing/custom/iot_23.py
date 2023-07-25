@@ -158,3 +158,4 @@ class IoT_23(BasePreprocessingPipeline):
         self.data = _one_hot_encode(self.data, 'proto')
         self.data, _ = _label_encode(self.data, 'conn_state')
         self.data, self.mappings = _label_encode(self.data, self.target)
+        self.reverse_mappings = dict((v, k) for k, v in self.mappings.items())
