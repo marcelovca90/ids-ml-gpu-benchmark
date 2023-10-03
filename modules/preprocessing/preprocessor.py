@@ -1,17 +1,28 @@
 import json
 import os
+import sys
 from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd
+import psutil
+import torch
+import torchsampler
 from fastai.tabular.all import df_shrink
 from featurewiz import FeatureWiz
-from imblearn.under_sampling import RandomUnderSampler, TomekLinks
-from pandas import DataFrame
+from imblearn.combine import SMOTEENN
+from imblearn.over_sampling import SMOTENC
+from imblearn.under_sampling import (EditedNearestNeighbours,
+                                     InstanceHardnessThreshold,
+                                     RandomUnderSampler, TomekLinks)
+from pandas_dq import dq_report
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
+from torchsampler import ImbalancedDatasetSampler
 from typing_extensions import Self
 
 from modules.logging.logger import function_call_logger, log_print
+from modules.preprocessing.balancer import BatchSizeHeuristic, CustomDataset
 from modules.preprocessing.stats import (log_data_types, log_memory_usage,
                                          log_value_counts)
 
@@ -19,17 +30,16 @@ from modules.preprocessing.stats import (log_data_types, log_memory_usage,
 class BasePreprocessingPipeline(ABC):
 
     def __init__(self) -> None:
-        self.data: DataFrame = None
+        self.data: pd.DataFrame = None
         self.folder: str = None
         self.name: str = None
         self.target: str = None
-        self.mappings: dict = None
-        self.reverse_mappings: dict = None
+        self.metadata: dict = dict()
         self.seed = 42
-        self.X_train: np.ndarray = None
-        self.X_test: np.ndarray = None
-        self.y_train: np.ndarray = None
-        self.y_test: np.ndarray = None
+        self.X_train: pd.DataFrame = None
+        self.X_test: pd.DataFrame = None
+        self.y_train: pd.Series = None
+        self.y_test: pd.Series = None
 
     @function_call_logger
     def preload(self) -> None:
@@ -37,17 +47,25 @@ class BasePreprocessingPipeline(ABC):
         log_print(f'Loading cached files from \'{base_path}\'...')
         self.data = pd.read_parquet(
             os.path.join(base_path, self.name + '.parquet'))
-        with open(os.path.join(base_path, 'mappings.json')) as json_file:
-            self.mappings = json.load(json_file)
-        self.reverse_mappings = dict((v, k) for k, v in self.mappings.items())
-        self.X_train = np.load(os.path.join(base_path, 'X_train.npy'))
-        self.y_train = np.load(os.path.join(base_path, 'y_train.npy'))
-        self.X_test = np.load(os.path.join(base_path, 'X_test.npy'))
-        self.y_test = np.load(os.path.join(base_path, 'y_test.npy'))
+        with open(os.path.join(base_path, 'metadata.json')) as json_file:
+            self.metadata = json.load(json_file)
+        self.X_train = pd.read_parquet(
+            os.path.join(base_path, 'X_train.parquet'))
+        self.y_train = pd.read_parquet(
+            os.path.join(base_path, 'y_train.parquet'))
+        self.X_test = pd.read_parquet(
+            os.path.join(base_path, 'X_test.parquet'))
+        self.y_test = pd.read_parquet(
+            os.path.join(base_path, 'y_test.parquet'))
 
     @abstractmethod
     def prepare(self) -> None:
         pass
+
+    def analyze(self) -> None:
+        dqr = dq_report(self.data, target=self.target,
+                        html=True, csv_engine="pandas", verbose=1)
+        log_print(dqr)
 
     @abstractmethod
     def load(self) -> None:
@@ -66,7 +84,7 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Value counts before filtering by frequency:")
         log_value_counts(self.data, self.target)
         vcd = self.data[self.target].value_counts(normalize=True).to_dict()
-        kept_labels = [key for key, val in vcd.items() if val > 0.01/100.0]
+        kept_labels = [key for key, val in vcd.items() if val > 1.0/100.0]
         log_print(f'Dropping labels with frequency inferior to 0.01% ...')
         filtered_labels = self.data[self.target].value_counts(
         ).index.drop(kept_labels)
@@ -113,12 +131,130 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def train_test_split(self) -> None:
         X, y = self.data.drop(columns=[self.target]), self.data[self.target]
-        X_train, X_test, y_train, y_test = \
+        self.X_train, self.X_test, self.y_train, self.y_test = \
             train_test_split(X, y, test_size=0.2, random_state=self.seed)
-        self.X_train = X_train.to_numpy()
-        self.X_test = X_test.to_numpy()
-        self.y_train = y_train.to_numpy()
-        self.y_test = y_test.to_numpy()
+
+    @function_call_logger
+    def resample_hardness(self) -> None:
+
+        log_print('Training data value counts before resampling...')
+        total_samples = len(self.y_train)
+        unique_labels, label_counts = np.unique(
+            self.y_train, return_counts=True)
+        rel_freqs = label_counts / total_samples
+        for i in range(len(unique_labels)):
+            label_name = self.metadata['target_mappings_reverse'][str(
+                unique_labels[i])]
+            log_print(
+                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
+                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
+        log_print(
+            f'Training data shape before resampling: ' +
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+        iht = InstanceHardnessThreshold(
+            sampling_strategy='all', random_state=self.seed, n_jobs=-1)
+        self.X_train, self.y_train = iht.fit_resample(
+            self.X_train, self.y_train)
+
+        log_print('Training data value counts after resampling...')
+        total_samples = len(self.y_train)
+        unique_labels, label_counts = np.unique(
+            self.y_train, return_counts=True)
+        rel_freqs = label_counts / total_samples
+        for i in range(len(unique_labels)):
+            label_name = self.metadata['target_mappings_reverse'][str(
+                unique_labels[i])]
+            log_print(
+                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
+                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
+        log_print(
+            f'Training data shape after resampling: ' +
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+    @function_call_logger
+    def resample_torch(self) -> None:
+        log_print('Training data value counts before resampling...')
+        total_samples = len(self.y_train)
+        unique_labels, label_counts = np.unique(
+            self.y_train, return_counts=True)
+        rel_freqs = label_counts / total_samples
+        for i in range(len(unique_labels)):
+            label_name = self.metadata['target_mappings_reverse'][str(
+                unique_labels[i])]
+            log_print(
+                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
+                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
+        log_print(
+            f'Training data shape before resampling: ' +
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+        # Convert X_train DataFrame and y_train Series to the CustomDataset
+        custom_dataset = CustomDataset(self.X_train, self.y_train)
+
+        # Create an instance of ImbalancedDatasetSampler
+        sampler = ImbalancedDatasetSampler(custom_dataset)
+
+        # Estimate the optimal batch size
+        batch_size = BatchSizeHeuristic.estimate(
+            memory_usage_pct=0.5, dataset=custom_dataset)
+
+        # Use the sampler in DataLoader
+        data_loader = DataLoader(
+            custom_dataset, batch_size=batch_size, sampler=sampler)
+
+        # Now, during training, the DataLoader will provide batches with balanced class distributions.
+        # This will help the model train more effectively on imbalanced data.
+
+    @function_call_logger
+    def resample_test(self) -> None:
+        log_print('Training data value counts before resampling...')
+        total_samples = len(self.y_train)
+        unique_labels, label_counts = np.unique(
+            self.y_train, return_counts=True)
+        rel_freqs = label_counts / total_samples
+        for i in range(len(unique_labels)):
+            label_name = self.metadata['target_mappings_reverse'][str(
+                unique_labels[i])]
+            log_print(
+                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
+                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
+        log_print(
+            f'Training data shape before resampling: ' +
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+        _, class_counts = np.unique(self.y_train, return_counts=True)
+        minority_class_size = np.min(class_counts)
+        n_neighbors = int(np.sqrt(minority_class_size))
+
+        smote = SMOTENC(sampling_strategy='auto',
+                        categorical_features=self.metadata['cat_cols_mask'],
+                        k_neighbors=n_neighbors, n_jobs=-1,
+                        random_state=self.seed)
+
+        enn = EditedNearestNeighbours(
+            n_neighbors=n_neighbors, kind_sel='all', n_jobs=-1)
+
+        smote_enn = SMOTEENN(sampling_strategy='auto', enn=enn,
+                             smote=smote, random_state=self.seed, n_jobs=-1)
+
+        self.X_train, self.y_train = smote_enn.fit_resample(
+            self.X_train, self.y_train)
+
+        log_print('Training data value counts after resampling...')
+        total_samples = len(self.y_train)
+        unique_labels, label_counts = np.unique(
+            self.y_train, return_counts=True)
+        rel_freqs = label_counts / total_samples
+        for i in range(len(unique_labels)):
+            label_name = self.metadata['target_mappings_reverse'][str(
+                unique_labels[i])]
+            log_print(
+                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
+                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
+        log_print(
+            f'Training data shape after resampling: ' +
+            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
 
     @function_call_logger
     def resample(self) -> None:
@@ -128,7 +264,8 @@ class BasePreprocessingPipeline(ABC):
             self.y_train, return_counts=True)
         rel_freqs = label_counts / total_samples
         for i in range(len(unique_labels)):
-            label_name = self.reverse_mappings[str(unique_labels[i])]
+            label_name = self.metadata['target_encoding_reverse'][str(
+                unique_labels[i])]
             log_print(
                 f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
                 f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
@@ -168,13 +305,28 @@ class BasePreprocessingPipeline(ABC):
             self.y_train, return_counts=True)
         rel_freqs = label_counts / total_samples
         for i in range(len(unique_labels)):
-            label_name = self.reverse_mappings[str(unique_labels[i])]
+            label_name = self.metadata['target_encoding_reverse'][str(
+                unique_labels[i])]
             log_print(
                 f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
                 f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
         log_print(
             f'Training data shape after resampling: ' +
             f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
+
+    @function_call_logger
+    def update_metadata(self) -> None:
+        self.metadata['columns'] = self.data.columns.to_list()
+        self.metadata['description'] = self.data.describe().to_dict()
+        self.metadata['dtypes'] = self.data.dtypes.to_dict()
+        self.metadata['shape'] = self.data.shape
+        self.metadata['memory_usage'] = self.data.memory_usage(deep=True).sum()
+        self.metadata['value_counts'] = \
+            self.data[self.target].value_counts().to_dict()
+        self.metadata['X_train_shape'] = self.X_train.shape
+        self.metadata['y_train_shape'] = self.y_train.shape
+        self.metadata['X_test_shape'] = self.X_test.shape
+        self.metadata['y_test_shape'] = self.y_test.shape
 
     @function_call_logger
     def save(self) -> None:
@@ -185,29 +337,33 @@ class BasePreprocessingPipeline(ABC):
         self.data.to_parquet(path=dataset_filename, index=False)
         # Train data
         X_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_train.npy')
+            os.getcwd(), self.folder, 'generated', 'X_train.parquet')
         log_print(f'Persisting X_train to \'{X_train_filename}\'...')
-        np.save(file=X_train_filename, arr=self.X_train)
+        self.X_train.to_parquet(path=X_train_filename, index=False)
         y_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_train.npy')
+            os.getcwd(), self.folder, 'generated', 'y_train.parquet')
         log_print(f'Persisting y_train to \'{y_train_filename}\'...')
-        np.save(file=y_train_filename, arr=self.y_train)
+        self.y_train.to_frame().to_parquet(path=y_train_filename, index=False)
         # Test data
         X_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_test.npy')
+            os.getcwd(), self.folder, 'generated', 'X_test.parquet')
         log_print(f'Persisting X_test to \'{X_test_filename}\'...')
-        np.save(file=X_test_filename, arr=self.X_test)
+        self.X_test.to_parquet(path=X_test_filename, index=False)
         y_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_test.npy')
+            os.getcwd(), self.folder, 'generated', 'y_test.parquet')
         log_print(f'Persisting y_test to \'{y_test_filename}\'...')
-        np.save(file=y_test_filename, arr=self.y_test)
-        # Mappings
-        json_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'mappings.json')
-        log_print(f'Persisting mappings to \'{json_filename}\'...')
-        with open(json_filename, 'w') as fp:
-            json.dump(self.mappings, fp)
-        log_print(f'Mappings persisted to \'{json_filename}\'.')
+        self.y_test.to_frame().to_parquet(path=y_test_filename, index=False)
+        # Metadata
+        metadata_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', 'metadata.json')
+        log_print(f'Persisting metadata to \'{metadata_filename}\'...')
+        with open(metadata_filename, 'w') as fp:
+            json.dump(self.metadata, fp, default=str)
+
+    @function_call_logger
+    def quantile_attempt(self) -> None:
+        print('quantile_attempt')
+        pass
 
     @function_call_logger
     def pipeline(self, preload=False, prepare=False) -> Self:
@@ -219,12 +375,16 @@ class BasePreprocessingPipeline(ABC):
             self.load()
             self.sanitize()
             self.set_dtypes()
-            self.filter()
+            # self.filter()
             self.encode()
             self.sort_columns()
             self.shrink_dtypes()
+            self.analyze()
             self.select_features()
             self.train_test_split()
-            self.resample()
+            self.quantile_attempt()
+            # self.resample_hardness()
+            # self.resample_torch()
+            self.update_metadata()
             self.save()
         return self

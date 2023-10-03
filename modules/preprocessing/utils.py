@@ -159,7 +159,7 @@ def _filter_by_quantile(df, column, percentage=0.05):
 def _label_encode(df, column):
     encoder = LabelEncoder().fit(df[column])
     log_print(
-        f"Label encoder found the following classes for '{column}':" +
+        f"Label encoder found the following classes for '{column}': " +
         str(encoder.classes_))
     df[column] = encoder.transform(df[column])
     mappings = {}

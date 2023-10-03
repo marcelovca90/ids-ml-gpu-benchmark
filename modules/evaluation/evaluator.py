@@ -37,8 +37,9 @@ def baseline(dp: BasePreprocessingPipeline) -> Self:
         os.getcwd(), 'results', dp.name, mode, uuid_str)
     os.makedirs(file_prefix, exist_ok=True)
 
-    class_names = [str(v) for v in dp.mappings.keys()]
-    class_indices = [int(k) for k in dp.mappings.values()]
+    X_train, y_train = dp.X_train.to_numpy(), dp.y_train.to_numpy()
+    class_names = [str(v) for v in dp.metadata['target_mappings'].keys()]
+    class_indices = [int(k) for k in dp.metadata['target_mappings'].values()]
     best_results = {}
 
     for clf_name in CLASSIFIER_NAMES:
@@ -46,12 +47,12 @@ def baseline(dp: BasePreprocessingPipeline) -> Self:
         def objective(trial):
 
             classifier_obj = get_baseline_suggestion(
-                dp.X_train, dp.y_train, clf_name, trial)
+                X_train, y_train, clf_name, trial)
 
             log_print(f'Suggested model: {type(classifier_obj)} ' +
                       f'with {vars(classifier_obj)}.')
 
-            classifier_obj.fit(dp.X_train, dp.y_train)
+            classifier_obj.fit(X_train, y_train)
 
             y_pred = classifier_obj.predict(dp.X_test)
 

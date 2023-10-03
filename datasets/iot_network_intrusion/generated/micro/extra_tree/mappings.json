@@ -1,0 +1,1 @@
+{"DenialofServiceDoS_SYNFlooding": "0", "ManintheMiddleMITM_ARPSpoofing": "1", "MiraiBotnet_ACKFlooding": "2", "MiraiBotnet_HTTPFlooding": "3", "MiraiBotnet_HostDiscovery": "4", "MiraiBotnet_TelnetBruteforce": "5", "MiraiBotnet_UDPFlooding": "6", "Normal_Normal": "7", "Scanning_HostDiscovery": "8", "Scanning_OSVersionDetection": "9", "Scanning_PortScanning": "10"}

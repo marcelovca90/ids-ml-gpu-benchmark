@@ -1,0 +1,527 @@
+[
+  {
+    "id": 1,
+    "filename": "benign-dec.pcap",
+    "category": "Normal",
+    "subcategories": []
+  },
+  {
+    "id": 2,
+    "filename": "mitm-arpspoofing-1-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and ((((ip.src == 192.168.0.16 and ip.dst == 192.168.0.13) or (ip.src == 192.168.0.13 and ip.dst == 192.168.0.16)) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == bc:1c:81:4b:ae:ba or arp.dst.hw_mac == 48:4b:aa:2c:d8:f9)))"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "filename": "mitm-arpspoofing-2-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and ((((ip.src == 192.168.0.16 and ip.dst == 192.168.0.13) or (ip.src == 192.168.0.13 and ip.dst == 192.168.0.16)) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == bc:1c:81:4b:ae:ba or arp.dst.hw_mac == 48:4b:aa:2c:d8:f9)))"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "filename": "mitm-arpspoofing-3-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and ((((ip.src == 192.168.0.16 and ip.dst == 192.168.0.13) or (ip.src == 192.168.0.13 and ip.dst == 192.168.0.16)) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == bc:1c:81:4b:ae:ba or arp.dst.hw_mac == 48:4b:aa:2c:d8:f9)))"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "filename": "mitm-arpspoofing-4-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and (((ip.addr == 192.168.0.24) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == 04:32:f4:45:17:b3 or arp.dst.hw_mac == 88:36:6c:d7:1c:56)))"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "filename": "mitm-arpspoofing-5-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and (((ip.addr == 192.168.0.24) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == 04:32:f4:45:17:b3 or arp.dst.hw_mac == 88:36:6c:d7:1c:56)))"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "filename": "mitm-arpspoofing-6-dec.pcap",
+    "category": "Man in the Middle (MITM)",
+    "subcategories": [
+      {
+        "name": "ARP Spoofing",
+        "filter": "eth.addr == f0:18:98:5e:ff:9f and (((ip.addr == 192.168.0.24) and !icmp and tcp) or (arp.src.hw_mac == f0:18:98:5e:ff:9f and (arp.dst.hw_mac == 04:32:f4:45:17:b3 or arp.dst.hw_mac == 88:36:6c:d7:1c:56)))"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "filename": "dos-synflooding-1-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.src == 222.0.0.0/8 and tcp.flags.syn == 1 and ip.dst == 192.168.0.13 and tcp.dstport == 554 and tcp"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "filename": "dos-synflooding-2-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.src == 222.0.0.0/8 and tcp.flags.syn == 1 and ip.dst == 192.168.0.13 and tcp.dstport == 554 and tcp"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "filename": "dos-synflooding-3-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.src == 111.0.0.0/8 and tcp.flags.syn == 1 and ip.dst == 192.168.0.13 and tcp.dstport == 554 and tcp"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "filename": "dos-synflooding-4-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.dst == 192.168.0.24 and tcp.flags.syn == 1 and ip.src == 111.0.0.0/8 and tcp and tcp.dstport == 19604"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "filename": "dos-synflooding-5-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.dst == 192.168.0.24 and tcp.flags.syn == 1 and ip.src == 111.0.0.0/8 and tcp and tcp.dstport == 19604"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "filename": "dos-synflooding-6-dec.pcap",
+    "category": "Denial of Service (DoS)",
+    "subcategories": [
+      {
+        "name": "SYN Flooding",
+        "filter": "ip.dst == 192.168.0.24 and tcp.flags.syn == 1 and ip.src == 111.0.0.0/8 and tcp and tcp.dstport == 19604"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "filename": "scan-hostport-1-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 13000"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "filename": "scan-hostport-2-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 14500"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "filename": "scan-hostport-3-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 2000"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "filename": "scan-hostport-4-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 4000"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "filename": "scan-hostport-5-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 1300"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "filename": "scan-hostport-6-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "(eth.src == f0:18:98:5e:ff:9f and arp and eth.dst == ff:ff:ff:ff:ff:ff) and frame.number < 1000"
+      },
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "filename": "scan-portos-1-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.13) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "filename": "scan-portos-2-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.13) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "filename": "scan-portos-3-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.13) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.13 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "filename": "scan-portos-4-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.24) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "filename": "scan-portos-5-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.24) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "filename": "scan-portos-6-dec.pcap",
+    "category": "Scanning",
+    "subcategories": [
+      {
+        "name": "Port Scanning",
+        "filter": "ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1)"
+      },
+      {
+        "name": "OS/Version Detection",
+        "filter": "(ip.src == 192.168.0.15 and ip.dst == 192.168.0.24) and (not icmp) and not (ip.src == 192.168.0.15 and ip.dst == 192.168.0.24 and ((tcp.flags.syn == 1 and tcp.window_size == 1024) or tcp.flags.reset == 1))"
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "filename": "mirai-udpflooding-1-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "UDP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "filename": "mirai-udpflooding-2-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "UDP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "filename": "mirai-udpflooding-3-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "UDP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "filename": "mirai-udpflooding-4-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "UDP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "filename": "mirai-ackflooding-1-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "ACK Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "filename": "mirai-ackflooding-2-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "ACK Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "filename": "mirai-ackflooding-3-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "ACK Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "filename": "mirai-ackflooding-4-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "ACK Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "filename": "mirai-httpflooding-1-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "HTTP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "filename": "mirai-httpflooding-2-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "HTTP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "filename": "mirai-httpflooding-3-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "HTTP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "filename": "mirai-httpflooding-4-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "HTTP Flooding",
+        "filter": "ip.dst == 210.89.164.90"
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "filename": "mirai-hostbruteforce-1-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "arp.dst.proto_ipv4 == 192.168.0.0/24 and arp.src.proto_ipv4 == 192.168.0.13 and eth.dst == ff:ff:ff:ff:ff:ff"
+      },
+      {
+        "name": "Telnet Bruteforce",
+        "filter": "tcp.dstport==23 and ip.src==192.168.0.13"
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "filename": "mirai-hostbruteforce-2-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "arp.dst.proto_ipv4 == 192.168.0.0/24 and arp.src.proto_ipv4 == 192.168.0.24 and eth.dst == ff:ff:ff:ff:ff:ff"
+      },
+      {
+        "name": "Telnet Bruteforce",
+        "filter": "tcp.dstport==23 and ip.src==192.168.0.24"
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "filename": "mirai-hostbruteforce-3-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "arp.dst.proto_ipv4 == 192.168.0.0/24 and arp.src.proto_ipv4 == 192.168.0.13 and eth.dst == ff:ff:ff:ff:ff:ff"
+      },
+      {
+        "name": "Telnet Bruteforce",
+        "filter": "tcp.dstport==23 and ip.src==192.168.0.13"
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "filename": "mirai-hostbruteforce-4-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "arp.dst.proto_ipv4 == 192.168.0.0/24 and arp.src.proto_ipv4 == 192.168.0.24 and eth.dst == ff:ff:ff:ff:ff:ff"
+      },
+      {
+        "name": "Telnet Bruteforce",
+        "filter": "tcp.dstport==23 and ip.src==192.168.0.24"
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "filename": "mirai-hostbruteforce-5-dec.pcap",
+    "category": "Mirai Botnet",
+    "subcategories": [
+      {
+        "name": "Host Discovery",
+        "filter": "arp.dst.proto_ipv4 == 192.168.0.0/24 and arp.src.proto_ipv4 == 192.168.0.13 and eth.dst == ff:ff:ff:ff:ff:ff"
+      },
+      {
+        "name": "Telnet Bruteforce",
+        "filter": "tcp.dstport==23 and ip.src==192.168.0.13"
+      }
+    ]
+  }
+]

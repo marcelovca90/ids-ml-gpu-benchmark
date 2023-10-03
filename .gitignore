@@ -130,6 +130,13 @@ dmypy.json
 # Other
 **/.DS_Store
 **/Thumbs.db
-datasets/iot_23/
-datasets/mqtt_iot_ids2020/
-sequential-noencoding-*
+backup/*
+datasets/*
+results/*
+*.csv
+*.html
+*.log
+*.parquet
+*.png
+*.xlsx
+*.zip

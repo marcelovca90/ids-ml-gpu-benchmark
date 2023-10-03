@@ -32,7 +32,7 @@ class IoT_23(BasePreprocessingPipeline):
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
         def filter_fn(x): return ('bro' in x)
         all_folders = [x[0] for x in os.walk(work_folder)]
-        sub_folders = filter(filter_fn, all_folders)
+        sub_folders = list(filter(filter_fn, all_folders))
         base_filename = 'conn.log.labeled'
 
         for folder in sub_folders:
@@ -45,9 +45,8 @@ class IoT_23(BasePreprocessingPipeline):
                          'local_orig', 'local_resp', 'missed_bytes', 'history',
                          'orig_pkts', 'orig_ip_bytes', 'resp_pkts',
                          'resp_ip_bytes', 'label']
-            col_drops = ['ts', 'uid', 'service', 'local_orig',
-                         'local_resp', 'history', 'id.orig_h', 'id.resp_h']
-
+            col_drops = ['ts', 'uid', 'service', 'local_orig', 'local_resp',
+                         'history', 'id.orig_h', 'id.resp_h']
             log_print(f'Started converting file in \'{folder}\' to parquet.')
 
             # Get the total number of lines in the CSV file for progress bar
@@ -68,8 +67,8 @@ class IoT_23(BasePreprocessingPipeline):
                 # Process each chunk of data and append to the Parquet file
                 for chunk in tqdm(csv_reader, total=num_iters, unit='chunk'):
                     # Convert chunk to Arrow table
-                    table = pa.Table.from_pandas(
-                        chunk.drop(columns=col_drops), schema=table.schema)
+                    table = pa.Table.from_pandas(chunk.drop(
+                        columns=col_drops), schema=table.schema)
                     writer.write_table(table)
 
             log_print(f'Finished converting file in \'{folder}\' to parquet.')
@@ -85,8 +84,7 @@ class IoT_23(BasePreprocessingPipeline):
         for folder in sub_folders:
             full_filename = os.path.join(folder, base_filename)
             log_print(f'Started loading parquet files in \'{folder}\'.')
-            df = pd.read_parquet(
-                full_filename, engine='pyarrow').sample(frac=0.1)
+            df = pd.read_parquet(full_filename, engine='pyarrow')
             df = df.drop_duplicates()
             df = df.dropna()
             data_frames.append(df)
@@ -128,14 +126,14 @@ class IoT_23(BasePreprocessingPipeline):
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan',               'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '(empty)   Malicious   PartOfAHorizontalPortScan',         'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan-Attack',        'PartOfAHorizontalPortScan-Attack')         # noqa
-        log_print('Value counts after sanitization:')
-        log_value_counts(self.data, self.target)
         self.data.drop_duplicates()
         self.data.dropna(axis='index')
+        log_print('Value counts after sanitization:')
+        log_value_counts(self.data, self.target)
 
     @function_call_logger
     def set_dtypes(self) -> None:
-        log_print('Data types before inference and manual definition:')
+        log_print('Data types before manual definition:')
         log_data_types(self.data)
         self.data = self.data.infer_objects().astype({
             'id.orig_p': np.uint64,
@@ -150,12 +148,23 @@ class IoT_23(BasePreprocessingPipeline):
             'resp_ip_bytes': np.uint64,
             self.target: 'category'
         })
-        log_print('Data types after inference and manual definition:')
+        log_print('Data types after manual definition:')
         log_data_types(self.data)
 
     @function_call_logger
     def encode(self) -> None:
         self.data = _one_hot_encode(self.data, 'proto')
         self.data, _ = _label_encode(self.data, 'conn_state')
-        self.data, self.mappings = _label_encode(self.data, self.target)
-        self.reverse_mappings = dict((v, k) for k, v in self.mappings.items())
+        self.data, target_mappings = _label_encode(self.data, self.target)
+        features = self.data.columns[self.data.columns != self.target]
+        cat_cols = [x for x in features if 'proto' in x or 'conn_state' in x]
+        cat_mask = [x in cat_cols for x in features]
+        num_cols = [x for x in features if x not in cat_cols]
+        num_mask = [x in num_cols for x in features]
+        self.metadata['cat_cols'] = cat_cols
+        self.metadata['cat_cols_mask'] = cat_mask
+        self.metadata['num_cols'] = num_cols
+        self.metadata['num_cols_mask'] = num_mask
+        self.metadata['target_mappings'] = target_mappings
+        self.metadata['target_mappings_reverse'] = \
+            dict((v, k) for k, v in target_mappings.items())
