@@ -11,7 +11,7 @@ formatter = colorlog.ColoredFormatter(
 handler_stdout = logging.StreamHandler(stream=sys.stdout)
 handler_stdout.setFormatter(formatter)
 
-handler_file = logging.FileHandler(f"data_loader.log", mode="w")
+handler_file = logging.FileHandler(f"logger.log", mode="w")
 handler_file.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)

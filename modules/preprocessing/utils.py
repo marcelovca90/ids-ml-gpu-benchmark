@@ -1,28 +1,22 @@
 import json
-import logging
 import numbers
 import os
-import re
-import sys
-from calendar import c
 from collections import OrderedDict
 from operator import getitem
 
-import colorlog
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import psutil
-import pyarrow as pa
-import pyarrow.parquet as pq
 from featurewiz import FeatureWiz
 from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import InstanceHardnessThreshold, TomekLinks
 from pytictoc import TicToc
+from scipy import stats
 from sklearn.decomposition import PCA, IncrementalPCA
 from sklearn.feature_selection import RFECV, VarianceThreshold
-from sklearn.linear_model import ElasticNet, Lasso, LassoLars, Ridge
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.tree import ExtraTreeClassifier
@@ -415,3 +409,84 @@ def _train_test_split(df, label_column, test_size=0.2, random_state=SEED, resamp
     log_print(
         f'X_test shape: {X_test.shape}; y_test shape: {y_test.shape}; y_test unique values: {set(y_test)}')
     return X_train, X_test, y_train, y_test
+
+# Define a function to determine the threshold based on the z-score
+
+
+def _determine_threshold(data):
+    # Calculate the unique value counts for the column
+    unique_value_counts = data.nunique()
+
+    # Calculate the z-score for the number of unique values
+    z_score = stats.zscore([unique_value_counts])
+
+    # Determine the threshold as the absolute z-score
+    threshold = abs(z_score[0])
+
+    return threshold
+
+# Define a function to automatically determine the QuantileTransformer distribution for each column
+
+
+def _determine_quantile_distribution(data):
+    # Perform the Shapiro-Wilk normality test
+    _, p_value = stats.shapiro(data)
+
+    # Set the distribution based on the p-value of the normality test
+    # You can adjust the significance level (e.g., 0.05) as needed
+    if p_value > 0.05:
+        return 'normal'
+    else:
+        return 'uniform'
+
+
+def _elbow_method(data):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    from sklearn.cluster import KMeans
+    from sklearn.metrics import silhouette_score
+
+    # Initialize lists to store inertia (within-cluster sum of squares) and silhouette scores
+    inertia_values = []
+    silhouette_scores = []
+
+    # Define the range of possible cluster numbers
+    k_range = range(2, 11)
+
+    # Loop through different cluster numbers
+    for k in k_range:
+        # Create a KMeans clustering model
+        log_print(f'k={k}')
+        kmeans = KMeans(n_clusters=k, random_state=0)
+
+        # Fit the model to the data
+        kmeans.fit(data.values.reshape(-1, 1))
+
+        # Append the inertia and silhouette score to the lists
+        inertia_values.append(kmeans.inertia_)
+
+        if k > 1:  # Silhouette score requires at least 2 clusters
+            labels = kmeans.labels_
+            silhouette_avg = silhouette_score(
+                data.values.reshape(-1, 1), labels)
+            silhouette_scores.append(silhouette_avg)
+        else:
+            silhouette_scores.append(None)
+
+    # Plot the Elbow Method graph
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(k_range, inertia_values, marker='o')
+    plt.title('Elbow Method for Optimal k')
+    plt.xlabel('Number of Clusters (k)')
+    plt.ylabel('Inertia (Within-Cluster Sum of Squares)')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(k_range, silhouette_scores, marker='o')
+    plt.title('Silhouette Score for Optimal k')
+    plt.xlabel('Number of Clusters (k)')
+    plt.ylabel('Silhouette Score')
+
+    plt.tight_layout()
+    plt.show()

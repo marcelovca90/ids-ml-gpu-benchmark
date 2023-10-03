@@ -126,8 +126,6 @@ class IoT_23(BasePreprocessingPipeline):
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan',               'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '(empty)   Malicious   PartOfAHorizontalPortScan',         'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan-Attack',        'PartOfAHorizontalPortScan-Attack')         # noqa
-        self.data.drop_duplicates()
-        self.data.dropna(axis='index')
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
 

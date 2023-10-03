@@ -1,25 +1,15 @@
 import os
-import tempfile
-from itertools import islice
 
-import dask.dataframe as dd
-import numpy as np
 import pandas as pd
-import polars as pl
-import pyarrow as pa
-import pyarrow.csv as csv
-import pyarrow.parquet as pq
-from tqdm import tqdm
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
-from modules.preprocessing.stats import log_data_types, log_value_counts
-from modules.preprocessing.utils import (_determine_best_chunksize,
-                                         _label_encode, _one_hot_encode,
+from modules.preprocessing.stats import log_value_counts
+from modules.preprocessing.utils import (_label_encode, _one_hot_encode,
                                          _replace_values)
 
 
-class MQTT_IoT_IDS2020_BiflowFeatures(BasePreprocessingPipeline):
+class MQTT_IoT_IDS2020_UniflowFeatures(BasePreprocessingPipeline):
 
     def __init__(self) -> None:
         super().__init__()
@@ -30,7 +20,7 @@ class MQTT_IoT_IDS2020_BiflowFeatures(BasePreprocessingPipeline):
     @function_call_logger
     def prepare(self) -> None:
         work_folder = os.path.join(
-            os.getcwd(), self.folder, 'source', 'biflow_features')
+            os.getcwd(), self.folder, 'source', 'uniflow_features')
 
         def filter_fn(x): return x.endswith('.csv')
         csv_files = list(filter(filter_fn, os.listdir(work_folder)))
@@ -44,9 +34,9 @@ class MQTT_IoT_IDS2020_BiflowFeatures(BasePreprocessingPipeline):
             _replace_values(df, 'is_attack',   0, 'normal')
             _replace_values(df, 'is_attack', '0', 'normal')
             _replace_values(df, 'is_attack',   1, base_filename.replace(
-                'biflow_', '').replace('.csv', ''))
+                'uniflow_', '').replace('.csv', ''))
             _replace_values(df, 'is_attack', '1', base_filename.replace(
-                'biflow_', '').replace('.csv', ''))
+                'uniflow_', '').replace('.csv', ''))
             log_print(f'Converting file \'{filename_csv}\' to parquet.')
             df.to_parquet(filename_parquet)
             log_print(f'Converted file \'{filename_csv}\' to parquet.')
@@ -54,7 +44,7 @@ class MQTT_IoT_IDS2020_BiflowFeatures(BasePreprocessingPipeline):
     @function_call_logger
     def load(self) -> None:
         work_folder = os.path.join(
-            os.getcwd(), self.folder, 'source', 'biflow_features')
+            os.getcwd(), self.folder, 'source', 'uniflow_features')
 
         def filter_fn(x): return x.endswith('.parquet')
         parquet_files = list(filter(filter_fn, os.listdir(work_folder)))
@@ -78,25 +68,3 @@ class MQTT_IoT_IDS2020_BiflowFeatures(BasePreprocessingPipeline):
         self.data.drop_duplicates()
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
-
-    @function_call_logger
-    def set_dtypes(self) -> None:
-        log_print('Data types before inference:')
-        log_data_types(self.data)
-
-    @function_call_logger
-    def encode(self) -> None:
-        self.data = _one_hot_encode(self.data, 'proto')
-        self.data, target_mappings = _label_encode(self.data, self.target)
-        features = self.data.columns[self.data.columns != self.target]
-        cat_cols = [x for x in features if 'proto' in x]
-        cat_mask = [x in cat_cols for x in features]
-        num_cols = [x for x in features if x not in cat_cols]
-        num_mask = [x in num_cols for x in features]
-        self.metadata['cat_cols'] = cat_cols
-        self.metadata['cat_cols_mask'] = cat_mask
-        self.metadata['num_cols'] = num_cols
-        self.metadata['num_cols_mask'] = num_mask
-        self.metadata['target_mappings'] = target_mappings
-        self.metadata['target_mappings_reverse'] = \
-            dict((v, k) for k, v in target_mappings.items())

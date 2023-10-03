@@ -1,28 +1,23 @@
+
+
 import json
 import os
-import sys
 from abc import ABC, abstractmethod
 
-import numpy as np
+import featuretools as ft
 import pandas as pd
-import psutil
-import torch
-import torchsampler
+from category_encoders import OneHotEncoder
 from fastai.tabular.all import df_shrink
 from featurewiz import FeatureWiz
-from imblearn.combine import SMOTEENN
-from imblearn.over_sampling import SMOTENC
-from imblearn.under_sampling import (EditedNearestNeighbours,
-                                     InstanceHardnessThreshold,
-                                     RandomUnderSampler, TomekLinks)
 from pandas_dq import dq_report
+from scipy import stats
+from sklearn.calibration import LabelEncoder
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset
-from torchsampler import ImbalancedDatasetSampler
+from sklearn.preprocessing import (LabelEncoder, OrdinalEncoder,
+                                   QuantileTransformer)
 from typing_extensions import Self
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.preprocessing.balancer import BatchSizeHeuristic, CustomDataset
 from modules.preprocessing.stats import (log_data_types, log_memory_usage,
                                          log_value_counts)
 
@@ -71,13 +66,47 @@ class BasePreprocessingPipeline(ABC):
     def load(self) -> None:
         pass
 
+    def remove_na_duplicates(self) -> None:
+        # Display the number of duplicates and NAs before cleaning
+        num_duplicates_before = self.data.duplicated().sum()
+        num_nas_before = self.data.isna().sum().sum()
+        log_print(f"Duplicates before cleaning: {num_duplicates_before}")
+        log_print(f"NAs before cleaning: {num_nas_before}")
+        # Remove duplicates
+        self.data.drop_duplicates(inplace=True)
+        # Remove NAs
+        self.data.dropna(inplace=True)
+        # Display the number of duplicates and NAs after cleaning
+        num_duplicates_after = self.data.duplicated().sum()
+        num_nas_after = self.data.isna().sum().sum()
+        log_print(f"Duplicates after cleaning: {num_duplicates_after}")
+        log_print(f"NAs after cleaning: {num_nas_after}")
+
     @abstractmethod
     def sanitize(self) -> None:
         pass
 
-    @abstractmethod
     def set_dtypes(self) -> None:
-        pass
+        log_print('Data types before inference:')
+        log_data_types(self.data)
+        es = ft.EntitySet(id="es")
+        es = es.add_dataframe(dataframe_name=self.name,
+                              dataframe=self.data.drop(columns=[self.target]),
+                              make_index=True,
+                              index='idx')
+        feature_defs = ft.dfs(entityset=es, features_only=True,
+                              target_dataframe_name=self.name, verbose=True)
+        self.numeric_cols = [
+            x.column_name for x in feature_defs if x.column_schema.is_numeric]
+        self.categorical_cols = [
+            x.column_name for x in feature_defs if x.column_schema.is_categorical]
+        self.ordinal_cols = [
+            x.column_name for x in feature_defs if x.column_schema.is_ordinal]
+        feature_types = {
+            x.column_name: x.column_schema.logical_type.primary_dtype for x in feature_defs}
+        self.data = self.data.astype(feature_types)
+        log_print('Data types after inference:')
+        log_data_types(self.data)
 
     @function_call_logger
     def filter(self) -> None:
@@ -95,9 +124,45 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Value counts after filtering by frequency:")
         log_value_counts(self.data, self.target)
 
-    @abstractmethod
+    @function_call_logger
     def encode(self) -> None:
-        pass
+
+        for col in self.numeric_cols + self.categorical_cols:
+            num_unique = self.data[col].nunique()
+            # OneHotEncode categorical columns
+            if num_unique <= 10:
+                encoder = OneHotEncoder(cols=[col], use_cat_names=True)
+                self.data = encoder.fit_transform(self.data)
+                log_print(
+                    f'{col}({num_unique}) => OneHot()')
+            # QuantileTransform numeric columns
+            else:
+                # Perform the Shapiro-Wilk normality test
+                _, p_value = stats.shapiro(self.data[col])
+                # Set the distribution based on the p-value of the normality test
+                output_distribution = 'normal' if p_value > 0.05 else 'normal'
+                transformer = QuantileTransformer(
+                    output_distribution=output_distribution)
+                self.data[col] = transformer.fit_transform(
+                    self.data[col].values.reshape(-1, 1))
+                log_print(
+                    f'{col}({num_unique}) => Quantile({output_distribution})')
+
+        # OrdinalEncode ordinal columns
+        for col in self.ordinal_cols:
+            encoder = OrdinalEncoder()
+            self.data[col] = encoder.fit_transform(self.data[col])
+            log_print(f'{col} => Ordinal ({set(self.data[col].unique())})')
+
+        # TargetEncode target column
+        encoder = LabelEncoder()
+        self.data[self.target] = encoder.fit_transform(self.data[self.target])
+        log_print(
+            f'{self.target} => Label ({set(self.data[self.target].unique())})')
+
+    @function_call_logger
+    def reset_index(self) -> None:
+        self.data.reset_index(drop=True, inplace=True)
 
     @function_call_logger
     def sort_columns(self) -> None:
@@ -111,7 +176,7 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Data types and memory usage before shrinkage:")
         log_data_types(self.data)
         log_memory_usage(self.data)
-        self.data = df_shrink(self.data)
+        self.data = df_shrink(self.data, obj2cat=True, int2uint=False)
         log_print(f"Data types and memory usage after shrinkage:")
         log_data_types(self.data)
         log_memory_usage(self.data)
@@ -133,186 +198,6 @@ class BasePreprocessingPipeline(ABC):
         X, y = self.data.drop(columns=[self.target]), self.data[self.target]
         self.X_train, self.X_test, self.y_train, self.y_test = \
             train_test_split(X, y, test_size=0.2, random_state=self.seed)
-
-    @function_call_logger
-    def resample_hardness(self) -> None:
-
-        log_print('Training data value counts before resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_mappings_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape before resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-        iht = InstanceHardnessThreshold(
-            sampling_strategy='all', random_state=self.seed, n_jobs=-1)
-        self.X_train, self.y_train = iht.fit_resample(
-            self.X_train, self.y_train)
-
-        log_print('Training data value counts after resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_mappings_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape after resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-    @function_call_logger
-    def resample_torch(self) -> None:
-        log_print('Training data value counts before resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_mappings_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape before resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-        # Convert X_train DataFrame and y_train Series to the CustomDataset
-        custom_dataset = CustomDataset(self.X_train, self.y_train)
-
-        # Create an instance of ImbalancedDatasetSampler
-        sampler = ImbalancedDatasetSampler(custom_dataset)
-
-        # Estimate the optimal batch size
-        batch_size = BatchSizeHeuristic.estimate(
-            memory_usage_pct=0.5, dataset=custom_dataset)
-
-        # Use the sampler in DataLoader
-        data_loader = DataLoader(
-            custom_dataset, batch_size=batch_size, sampler=sampler)
-
-        # Now, during training, the DataLoader will provide batches with balanced class distributions.
-        # This will help the model train more effectively on imbalanced data.
-
-    @function_call_logger
-    def resample_test(self) -> None:
-        log_print('Training data value counts before resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_mappings_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape before resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-        _, class_counts = np.unique(self.y_train, return_counts=True)
-        minority_class_size = np.min(class_counts)
-        n_neighbors = int(np.sqrt(minority_class_size))
-
-        smote = SMOTENC(sampling_strategy='auto',
-                        categorical_features=self.metadata['cat_cols_mask'],
-                        k_neighbors=n_neighbors, n_jobs=-1,
-                        random_state=self.seed)
-
-        enn = EditedNearestNeighbours(
-            n_neighbors=n_neighbors, kind_sel='all', n_jobs=-1)
-
-        smote_enn = SMOTEENN(sampling_strategy='auto', enn=enn,
-                             smote=smote, random_state=self.seed, n_jobs=-1)
-
-        self.X_train, self.y_train = smote_enn.fit_resample(
-            self.X_train, self.y_train)
-
-        log_print('Training data value counts after resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_mappings_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape after resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-    @function_call_logger
-    def resample(self) -> None:
-        log_print('Training data value counts before resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_encoding_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape before resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
-
-        # Calculate the desired minority class samples for rebalancing.
-        desired_minority_ratio = 0.01  # 1% for the minority class
-        desired_minority_samples = int(desired_minority_ratio * total_samples)
-
-        # Calculate the sampling_strategy for RandomUnderSampler, avoiding an
-        # excessive request for samples in the minority class.
-        sampling_strategy = {}
-        for label, count in zip(unique_labels, label_counts):
-            if count <= desired_minority_samples:
-                # If the class already has fewer samples than
-                # desired_minority_samples, retain all samples in the class
-                # (no undersampling).
-                sampling_strategy[label] = count
-            else:
-                # Else, undersample the class to the desired number of samples.
-                sampling_strategy[label] = desired_minority_samples
-
-        ru_sampler = RandomUnderSampler(
-            sampling_strategy=sampling_strategy, random_state=self.seed)
-        self.X_train, self.y_train = ru_sampler.fit_resample(
-            self.X_train, self.y_train)
-
-        tl_sampler = TomekLinks(sampling_strategy='auto', n_jobs=-1)
-        self.X_train, self.y_train = tl_sampler.fit_resample(
-            self.X_train, self.y_train)
-
-        log_print('Training data value counts after resampling...')
-        total_samples = len(self.y_train)
-        unique_labels, label_counts = np.unique(
-            self.y_train, return_counts=True)
-        rel_freqs = label_counts / total_samples
-        for i in range(len(unique_labels)):
-            label_name = self.metadata['target_encoding_reverse'][str(
-                unique_labels[i])]
-            log_print(
-                f'({str(unique_labels[i]).rjust(2)}) {label_name.rjust(32)}' +
-                f'\t{str(label_counts[i]).rjust(8)}\t{rel_freqs[i]:.3f}')
-        log_print(
-            f'Training data shape after resampling: ' +
-            f'X_train={self.X_train.shape}, y_train={self.y_train.shape}')
 
     @function_call_logger
     def update_metadata(self) -> None:
@@ -359,11 +244,6 @@ class BasePreprocessingPipeline(ABC):
         log_print(f'Persisting metadata to \'{metadata_filename}\'...')
         with open(metadata_filename, 'w') as fp:
             json.dump(self.metadata, fp, default=str)
-
-    @function_call_logger
-    def quantile_attempt(self) -> None:
-        print('quantile_attempt')
-        pass
 
     @function_call_logger
     def pipeline(self, preload=False, prepare=False) -> Self:
