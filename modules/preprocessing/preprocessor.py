@@ -5,6 +5,7 @@ import os
 from abc import ABC, abstractmethod
 
 import featuretools as ft
+import numpy as np
 import pandas as pd
 from category_encoders import OneHotEncoder
 from fastai.tabular.all import df_shrink
@@ -82,83 +83,88 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Duplicates after cleaning: {num_duplicates_after}")
         log_print(f"NAs after cleaning: {num_nas_after}")
 
-    @abstractmethod
+    @function_call_logger
     def sanitize(self) -> None:
-        pass
-
-    def set_dtypes(self) -> None:
-        log_print('Data types before inference:')
-        log_data_types(self.data)
-        es = ft.EntitySet(id="es")
-        es = es.add_dataframe(dataframe_name=self.name,
-                              dataframe=self.data.drop(columns=[self.target]),
-                              make_index=True,
-                              index='idx')
-        feature_defs = ft.dfs(entityset=es, features_only=True,
-                              target_dataframe_name=self.name, verbose=True)
-        self.numeric_cols = [
-            x.column_name for x in feature_defs if x.column_schema.is_numeric]
-        self.categorical_cols = [
-            x.column_name for x in feature_defs if x.column_schema.is_categorical]
-        self.ordinal_cols = [
-            x.column_name for x in feature_defs if x.column_schema.is_ordinal]
-        feature_types = {
-            x.column_name: x.column_schema.logical_type.primary_dtype for x in feature_defs}
-        self.data = self.data.astype(feature_types)
-        log_print('Data types after inference:')
-        log_data_types(self.data)
+        log_print('Value counts before sanitization:')
+        log_value_counts(self.data, self.target)
+        for col in self.data.columns:
+            if 'int' in str(self.data[col].dtype):
+                self.data[col].fillna(0, inplace=True)
+            elif 'float' in str(self.data[col].dtype):
+                self.data[col].fillna(0.0, inplace=True)
+            elif 'object' == str(self.data[col].dtype):
+                self.data[col].fillna('0', inplace=True)
+        log_print('Value counts after sanitization:')
+        log_value_counts(self.data, self.target)
 
     @function_call_logger
-    def filter(self) -> None:
-        log_print(f"Value counts before filtering by frequency:")
-        log_value_counts(self.data, self.target)
-        vcd = self.data[self.target].value_counts(normalize=True).to_dict()
-        kept_labels = [key for key, val in vcd.items() if val > 1.0/100.0]
-        log_print(f'Dropping labels with frequency inferior to 0.01% ...')
-        filtered_labels = self.data[self.target].value_counts(
-        ).index.drop(kept_labels)
-        for label in filtered_labels:
-            self.data = self.data.drop(
-                self.data[self.data[self.target] == label].index)
-        self.data.reset_index(drop=True, inplace=True)
-        log_print(f"Value counts after filtering by frequency:")
-        log_value_counts(self.data, self.target)
+    def set_dtypes(self) -> None:
+        log_print(f"Data types and memory usage before conversion:")
+        log_data_types(self.data)
+        log_memory_usage(self.data)
+        for col in self.data.columns:
+            try:
+                self.data[col] = pd.to_numeric(self.data[col], errors='raise')
+            except Exception as e:
+                pass
+        self.data[self.target] = self.data[self.target].astype('category')
+        log_print(f"Data types and memory usage before conversion:")
+        log_data_types(self.data)
+        log_memory_usage(self.data)
+
+    @function_call_logger
+    def drop_constant_cols(self) -> None:
+        constant_cols = [
+            col for col in self.data.columns if self.data[col].nunique() == 1]
+        if constant_cols:
+            self.data.drop(columns=constant_cols, inplace=True)
+            log_print(
+                f'Columns {constant_cols} were dropped due to zero variance.')
 
     @function_call_logger
     def encode(self) -> None:
 
-        for col in self.numeric_cols + self.categorical_cols:
+        # Encode numeric features
+        numeric_columns = self.data.drop(columns=[self.target]).select_dtypes(
+            include=['number']).columns.tolist()
+        for col in numeric_columns:
+            diffs = np.diff(self.data[col].values)
+            is_monotonic = all(diffs >= 0) or all(diffs <= 0)
             num_unique = self.data[col].nunique()
-            # OneHotEncode categorical columns
-            if num_unique <= 10:
+            if num_unique > 1 and is_monotonic:
+                encoder = OrdinalEncoder()
+                self.data[col] = encoder.fit_transform(self.data[col])
+                log_print(f'{col} => Column {col} was Ordinal-encoded.')
+            elif num_unique <= 10:
                 encoder = OneHotEncoder(cols=[col], use_cat_names=True)
                 self.data = encoder.fit_transform(self.data)
-                log_print(
-                    f'{col}({num_unique}) => OneHot()')
-            # QuantileTransform numeric columns
+                log_print(f'{col} => Column {col} was OneHot-encoded.')
             else:
                 # Perform the Shapiro-Wilk normality test
                 _, p_value = stats.shapiro(self.data[col])
-                # Set the distribution based on the p-value of the normality test
-                output_distribution = 'normal' if p_value > 0.05 else 'normal'
+                # Set the distribution based on the p-value (normality test)
+                output_distribution = 'normal' if p_value > 0.05 else 'uniform'
                 transformer = QuantileTransformer(
                     output_distribution=output_distribution)
                 self.data[col] = transformer.fit_transform(
                     self.data[col].values.reshape(-1, 1))
                 log_print(
-                    f'{col}({num_unique}) => Quantile({output_distribution})')
+                    f'{col} => Column {col} was Quantile-transformed with {output_distribution} distribution.')
 
-        # OrdinalEncode ordinal columns
-        for col in self.ordinal_cols:
-            encoder = OrdinalEncoder()
-            self.data[col] = encoder.fit_transform(self.data[col])
-            log_print(f'{col} => Ordinal ({set(self.data[col].unique())})')
+        # Encode non-numeric features
+        object_columns = self.data.drop(columns=[self.target]).select_dtypes(
+            include=['object']).columns.tolist()
+        for col in object_columns:
+            num_unique = self.data[col].nunique()
+            if num_unique <= 10:
+                encoder = OneHotEncoder(cols=[col], use_cat_names=True)
+                self.data = encoder.fit_transform(self.data)
+                log_print(f'{col} => Column {col} was OneHot-encoded.')
 
-        # TargetEncode target column
+        # Encode target feature
         encoder = LabelEncoder()
         self.data[self.target] = encoder.fit_transform(self.data[self.target])
-        log_print(
-            f'{self.target} => Label ({set(self.data[self.target].unique())})')
+        log_print(f'{self.target} => Column {col} was Label-encoded.')
 
     @function_call_logger
     def reset_index(self) -> None:
@@ -215,35 +221,40 @@ class BasePreprocessingPipeline(ABC):
 
     @function_call_logger
     def save(self) -> None:
-        # Dataset
-        dataset_filename = os.path.join(
+        # Dataset (CSV)
+        csv_filename = os.path.join(
+            os.getcwd(), self.folder, 'generated', self.name + '.csv')
+        log_print(f'Persisting dataset to \'{csv_filename}\'...')
+        self.data.to_csv(path_or_buf=csv_filename, header=True, index=False)
+        # Dataset (Parquet)
+        parquet_filename = os.path.join(
             os.getcwd(), self.folder, 'generated', self.name + '.parquet')
-        log_print(f'Persisting dataset to \'{dataset_filename}\'...')
-        self.data.to_parquet(path=dataset_filename, index=False)
-        # Train data
-        X_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_train.parquet')
-        log_print(f'Persisting X_train to \'{X_train_filename}\'...')
-        self.X_train.to_parquet(path=X_train_filename, index=False)
-        y_train_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_train.parquet')
-        log_print(f'Persisting y_train to \'{y_train_filename}\'...')
-        self.y_train.to_frame().to_parquet(path=y_train_filename, index=False)
-        # Test data
-        X_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'X_test.parquet')
-        log_print(f'Persisting X_test to \'{X_test_filename}\'...')
-        self.X_test.to_parquet(path=X_test_filename, index=False)
-        y_test_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'y_test.parquet')
-        log_print(f'Persisting y_test to \'{y_test_filename}\'...')
-        self.y_test.to_frame().to_parquet(path=y_test_filename, index=False)
-        # Metadata
-        metadata_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'metadata.json')
-        log_print(f'Persisting metadata to \'{metadata_filename}\'...')
-        with open(metadata_filename, 'w') as fp:
-            json.dump(self.metadata, fp, default=str)
+        log_print(f'Persisting dataset to \'{parquet_filename}\'...')
+        self.data.to_parquet(path=parquet_filename, index=False)
+        # # Train data
+        # X_train_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', 'X_train.parquet')
+        # log_print(f'Persisting X_train to \'{X_train_filename}\'...')
+        # self.X_train.to_parquet(path=X_train_filename, index=False)
+        # y_train_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', 'y_train.parquet')
+        # log_print(f'Persisting y_train to \'{y_train_filename}\'...')
+        # self.y_train.to_frame().to_parquet(path=y_train_filename, index=False)
+        # # Test data
+        # X_test_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', 'X_test.parquet')
+        # log_print(f'Persisting X_test to \'{X_test_filename}\'...')
+        # self.X_test.to_parquet(path=X_test_filename, index=False)
+        # y_test_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', 'y_test.parquet')
+        # log_print(f'Persisting y_test to \'{y_test_filename}\'...')
+        # self.y_test.to_frame().to_parquet(path=y_test_filename, index=False)
+        # # Metadata
+        # metadata_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', 'metadata.json')
+        # log_print(f'Persisting metadata to \'{metadata_filename}\'...')
+        # with open(metadata_filename, 'w') as fp:
+        #     json.dump(self.metadata, fp, default=str)
 
     @function_call_logger
     def pipeline(self, preload=False, prepare=False) -> Self:

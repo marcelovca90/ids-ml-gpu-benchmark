@@ -9,29 +9,30 @@ from modules.preprocessing.custom.mqtt_iot_ids2020_uniflow import \
 
 if __name__ == "__main__":
 
-    for cls in [MQTT_IoT_IDS2020_BiflowFeatures,
-                MQTT_IoT_IDS2020_UniflowFeatures,
-                MQTT_IoT_IDS2020_PacketFeatures]:
+    for cls in [
+        MQTT_IoT_IDS2020_BiflowFeatures,
+        MQTT_IoT_IDS2020_UniflowFeatures,
+        MQTT_IoT_IDS2020_PacketFeatures
+    ]:
 
         for use_weights in [False, True]:
 
             try:
-
                 pipe = cls()
-
                 pipe.prepare()
                 pipe.load()
-                pipe.sanitize()
                 pipe.set_dtypes()
+                pipe.sanitize()
+                pipe.drop_constant_cols()
                 pipe.encode()
                 pipe.shrink_dtypes()
                 pipe.select_features()
-                pipe.sort_columns()
                 pipe.remove_na_duplicates()
+                pipe.sort_columns()
                 pipe.reset_index()
+                pipe.save()
 
                 evaluator.baseline(pipe, use_class_weights=use_weights)
 
             except Exception as e:
-
                 log_print(e)
