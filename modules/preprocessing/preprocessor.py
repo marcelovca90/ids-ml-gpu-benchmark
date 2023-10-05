@@ -16,7 +16,6 @@ from feature_engine.selection.drop_duplicate_features import \
     DropDuplicateFeatures
 from feature_engine.transformation import YeoJohnsonTransformer
 from pandas_dq import dq_report
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from typing_extensions import Self
 
