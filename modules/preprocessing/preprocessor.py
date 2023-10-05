@@ -15,6 +15,7 @@ from feature_engine.selection.drop_correlated_features import \
 from feature_engine.selection.drop_duplicate_features import \
     DropDuplicateFeatures
 from feature_engine.transformation import YeoJohnsonTransformer
+from pandas.api.types import is_numeric_dtype, is_string_dtype
 from pandas_dq import dq_report
 from sklearn.preprocessing import LabelEncoder
 from typing_extensions import Self
@@ -74,7 +75,7 @@ class BasePreprocessingPipeline(ABC):
     def sanitize(self) -> None:
         log_print('Value counts before sanitization:')
         log_value_counts(self.data, self.target)
-        for col in self.data.columns:
+        for col in self.data.columns.tolist():
             if 'int' in str(self.data[col].dtype):
                 self.data[col].fillna(0, inplace=True)
             elif 'float' in str(self.data[col].dtype):
@@ -89,7 +90,7 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Data types and memory usage before conversion:")
         log_data_types(self.data)
         log_memory_usage(self.data)
-        for col in self.data.columns:
+        for col in self.data.columns.tolist():
             try:
                 self.data[col] = pd.to_numeric(self.data[col], errors='raise')
             except Exception as e:
@@ -102,31 +103,33 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def drop_irrelevant_features(self) -> None:
 
-        feature_cols = [x for x in self.data.columns if x != self.target]
-
+        feature_cols = [x for x in self.data.columns.tolist()
+                        if x != self.target]
         constant_filter = DropConstantFeatures(variables=feature_cols)
         filtered_data = constant_filter.fit_transform(
             self.data.drop(columns=[self.target]), None)
         self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
         dropped_cols = constant_filter.features_to_drop_
-        feature_cols = [x for x in feature_cols if x not in dropped_cols]
         log_print(f'Constant columns {dropped_cols} were dropped.')
 
+        feature_cols = [x for x in self.data.columns.tolist()
+                        if x != self.target]
         duplicate_filter = DropDuplicateFeatures(variables=feature_cols)
         filtered_data = duplicate_filter.fit_transform(
             self.data.drop(columns=[self.target]), None)
         self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
         dropped_cols = duplicate_filter.features_to_drop_
-        feature_cols = [x for x in feature_cols if x not in dropped_cols]
         log_print(f'Duplicate columns {dropped_cols} were dropped.')
 
+        feature_cols = [col for col in self.data.columns.tolist()
+                        if is_numeric_dtype(self.data.dtypes[col])
+                        and col != self.target]
         correlated_filter = DropCorrelatedFeatures(
             variables=feature_cols, threshold=1.0)
         filtered_data = correlated_filter.fit_transform(
             self.data.drop(columns=[self.target]), None)
         self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
         dropped_cols = correlated_filter.features_to_drop_
-        feature_cols = [x for x in feature_cols if x not in dropped_cols]
         log_print(f'Correlated columns {dropped_cols} were dropped.')
 
         log_print(f"Memory usage after dropping irrelevant features:")
@@ -137,10 +140,11 @@ class BasePreprocessingPipeline(ABC):
 
         ordinal, one_hot, yeo_johnson = [], [], []
 
-        n_uniques = {c: self.data[c].nunique() for c in self.data.columns}
+        n_uniques = {c: self.data[c].nunique()
+                     for c in self.data.columns.tolist()}
 
         for col in self.data.drop(columns=[self.target]).columns.tolist():
-            if pd.api.types.is_numeric_dtype(self.data.dtypes[col]):
+            if is_numeric_dtype(self.data.dtypes[col]):
                 if n_uniques[col] > 1:
                     diffs = np.diff(self.data[col].values)
                     is_monotonic = all(diffs >= 0) or all(diffs <= 0)
@@ -150,7 +154,7 @@ class BasePreprocessingPipeline(ABC):
                         one_hot.append(col)
                     else:
                         yeo_johnson.append(col)
-            elif pd.api.types.is_string_dtype(self.data.dtypes[col]):
+            elif is_string_dtype(self.data.dtypes[col]):
                 if n_uniques[col] > 1 and n_uniques[col] <= 10:
                     one_hot.append(col)
 
@@ -182,7 +186,7 @@ class BasePreprocessingPipeline(ABC):
 
     @function_call_logger
     def sort_columns(self) -> None:
-        cols = [x for x in self.data.columns.values if x not in [self.target]]
+        cols = [x for x in self.data.columns.tolist() if x != self.target]
         cols.extend([self.target])
         log_print(f'Columns sorted according to {cols}.')
         self.data = self.data.reindex(columns=cols)
