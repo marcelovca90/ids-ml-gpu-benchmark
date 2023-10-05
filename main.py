@@ -12,27 +12,29 @@ if __name__ == "__main__":
     for cls in [
         MQTT_IoT_IDS2020_BiflowFeatures,
         MQTT_IoT_IDS2020_UniflowFeatures,
-        MQTT_IoT_IDS2020_PacketFeatures
+        # MQTT_IoT_IDS2020_PacketFeatures
     ]:
 
-        for use_weights in [False, True]:
+        for fix_imbalance in [False, True]:
 
-            try:
-                pipe = cls()
-                pipe.prepare()
-                pipe.load()
-                pipe.set_dtypes()
-                pipe.sanitize()
-                pipe.drop_constant_cols()
-                pipe.encode()
-                pipe.shrink_dtypes()
-                pipe.select_features()
-                pipe.remove_na_duplicates()
-                pipe.sort_columns()
-                pipe.reset_index()
-                pipe.save()
+            for use_weights in [False, True]:
 
-                evaluator.baseline(pipe, use_class_weights=use_weights)
+                try:
+                    pipe = cls()
+                    pipe.prepare()
+                    pipe.load()
+                    pipe.set_dtypes()
+                    pipe.sanitize()
+                    pipe.encode()
+                    pipe.shrink_dtypes()
+                    pipe.drop_irrelevant_features()
+                    pipe.remove_na_duplicates()
+                    pipe.sort_columns()
+                    pipe.reset_index()
+                    pipe.update_metadata()
+                    pipe.save()
 
-            except Exception as e:
-                log_print(e)
+                    evaluator.baseline(pipe, fix_imbalance, use_weights)
+
+                except Exception as e:
+                    log_print(e)

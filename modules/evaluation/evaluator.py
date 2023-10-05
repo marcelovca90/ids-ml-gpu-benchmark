@@ -34,7 +34,10 @@ def build_model_params(model_id, use_class_weights=False, custom_engine=None):
 
 
 @function_call_logger
-def baseline(dp: BasePreprocessingPipeline, use_class_weights: bool) -> Self:
+def baseline(
+        dp: BasePreprocessingPipeline,
+        fix_imbalance: bool,
+        use_class_weights: bool) -> Self:
 
     exp = ClassificationExperiment()
     exp.setup(
@@ -44,9 +47,8 @@ def baseline(dp: BasePreprocessingPipeline, use_class_weights: bool) -> Self:
         fold=5,
         fold_strategy='stratifiedkfold',
         fold_shuffle=True,
-        low_variance_threshold=0.0,
-        remove_multicollinearity=True,
-        multicollinearity_threshold=0.9,
+        feature_selection=True,
+        n_features_to_select=0.8,
         use_gpu=False,
         session_id=dp.seed
     )
@@ -81,5 +83,5 @@ def baseline(dp: BasePreprocessingPipeline, use_class_weights: bool) -> Self:
     base_lb = exp.get_leaderboard(model_only=True).sort_values(
         by=['F1 (weighted)'], ascending=False).drop_duplicates(subset=['Model Name'])
 
-    filename = f'{dp.__class__.__name__}_{use_class_weights}_base.xlsx'
+    filename = f'{dp.__class__.__name__}_FI={fix_imbalance}_CW={use_class_weights}_base.xlsx'
     base_lb.to_excel(os.path.join(os.getcwd(), filename))
