@@ -67,6 +67,8 @@ class BasePreprocessingPipeline(ABC):
         num_nas_after = self.data.isna().sum().sum()
         log_print(f"Duplicates after cleaning: {num_duplicates_after}")
         log_print(f"NAs after cleaning: {num_nas_after}")
+        log_print(f"Memory usage after cleaning:")
+        log_memory_usage(self.data)
 
     @function_call_logger
     def sanitize(self) -> None:
@@ -126,6 +128,9 @@ class BasePreprocessingPipeline(ABC):
         dropped_cols = correlated_filter.features_to_drop_
         feature_cols = [x for x in feature_cols if x not in dropped_cols]
         log_print(f'Correlated columns {dropped_cols} were dropped.')
+
+        log_print(f"Memory usage after dropping irrelevant features:")
+        log_memory_usage(self.data)
 
     @function_call_logger
     def encode(self) -> None:
