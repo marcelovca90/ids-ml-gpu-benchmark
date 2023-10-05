@@ -1,5 +1,3 @@
-
-
 import json
 import os
 from abc import ABC, abstractmethod
@@ -17,7 +15,8 @@ from feature_engine.selection.drop_duplicate_features import \
 from feature_engine.transformation import YeoJohnsonTransformer
 from pandas.api.types import is_numeric_dtype, is_string_dtype
 from pandas_dq import dq_report
-from sklearn.preprocessing import LabelEncoder
+from scipy.stats import skew
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from typing_extensions import Self
 
 from modules.logging.logger import function_call_logger, log_print
@@ -138,14 +137,14 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def encode(self) -> None:
 
-        ordinal, one_hot, yeo_johnson = [], [], []
+        ordinal, one_hot, yeo_johnson, min_max = [], [], [], []
 
         n_uniques = {c: self.data[c].nunique()
                      for c in self.data.columns.tolist()}
 
         for col in self.data.drop(columns=[self.target]).columns.tolist():
             if is_numeric_dtype(self.data.dtypes[col]):
-                if n_uniques[col] > 1:
+                if n_uniques[col] > 2:
                     diffs = np.diff(self.data[col].values)
                     is_monotonic = all(diffs >= 0) or all(diffs <= 0)
                     if is_monotonic:
@@ -153,7 +152,13 @@ class BasePreprocessingPipeline(ABC):
                     elif n_uniques[col] <= 10:
                         one_hot.append(col)
                     else:
-                        yeo_johnson.append(col)
+                        Q1 = self.data[col].quantile(0.25)
+                        Q3 = self.data[col].quantile(0.75)
+                        IQR = Q3 - Q1
+                        if any(self.data[col] > (1.5 * IQR)):
+                            min_max.append(col)
+                        else:
+                            yeo_johnson.append(col)
             elif is_string_dtype(self.data.dtypes[col]):
                 if n_uniques[col] > 1 and n_uniques[col] <= 10:
                     one_hot.append(col)
@@ -170,6 +175,11 @@ class BasePreprocessingPipeline(ABC):
             one_hot_enc = OneHotEncoder(variables=one_hot)
             self.data = one_hot_enc.fit_transform(self.data, None)
             log_print(f"Applied OneHotEncoder ({one_hot_enc.encoder_dict_})")
+
+        if min_max:
+            scaler = MinMaxScaler()
+            self.data[min_max] = scaler.fit_transform(self.data[min_max], None)
+            log_print(f"Applied MinMaxScaler ({min_max}: {scaler.scale_})")
 
         if yeo_johnson:
             yjt = YeoJohnsonTransformer(variables=yeo_johnson)
