@@ -5,7 +5,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 from fastai.tabular.all import df_shrink
-from feature_engine.encoding import OneHotEncoder, OrdinalEncoder
+from feature_engine.encoding import (OneHotEncoder, OrdinalEncoder,
+                                     RareLabelEncoder)
 from feature_engine.selection.drop_constant_features import \
     DropConstantFeatures
 from feature_engine.selection.drop_correlated_features import \
@@ -137,7 +138,7 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def encode(self) -> None:
 
-        ordinal, one_hot, yeo_johnson, min_max = [], [], [], []
+        ordinal, rare_label, one_hot, yeo_johnson, min_max = [], [], [], [], []
 
         n_uniques = {c: self.data[c].nunique()
                      for c in self.data.columns.tolist()}
@@ -149,7 +150,11 @@ class BasePreprocessingPipeline(ABC):
                     is_monotonic = all(diffs >= 0) or all(diffs <= 0)
                     if is_monotonic:
                         ordinal.append(col)
-                    elif n_uniques[col] <= 10:
+                    elif n_uniques[col] < 30:
+                        value_counts = self.data[col].value_counts()
+                        percents = (value_counts / len(self.data[col])) * 100
+                        if any(percents < 0.05):
+                            rare_label.append(col)
                         one_hot.append(col)
                     else:
                         Q1 = self.data[col].quantile(0.25)
@@ -170,6 +175,11 @@ class BasePreprocessingPipeline(ABC):
             ord_enc = OrdinalEncoder(variables=ordinal)
             self.data = ord_enc.fit_transform(self.data, None)
             log_print(f"Applied OrdinalEncoder ({ord_enc.encoder_dict_})")
+
+        if rare_label:
+            rare_enc = RareLabelEncoder(variables=rare_label)
+            self.data = rare_enc.fit_transform(self.data, None)
+            log_print(f"Applied RareLabelEncoder ({rare_enc.encoder_dict_})")
 
         if one_hot:
             one_hot_enc = OneHotEncoder(variables=one_hot)

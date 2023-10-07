@@ -21,7 +21,8 @@ if __name__ == "__main__":
 
                 try:
                     pipe = cls()
-                    pipe.prepare()
+                    if not fix_imbalance and not use_weights:
+                        pipe.prepare()
                     pipe.load()
                     pipe.set_dtypes()
                     pipe.sanitize()
@@ -34,7 +35,7 @@ if __name__ == "__main__":
                     pipe.update_metadata()
                     pipe.save()
 
-                    evaluator.baseline(pipe, fix_imbalance, use_weights)
+                    evaluator.run(pipe, fix_imbalance, use_weights)
 
                 except Exception as e:
                     log_print(e)
