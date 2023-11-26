@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import psutil
-from featurewiz import FeatureWiz
+# from featurewiz import FeatureWiz
 from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import InstanceHardnessThreshold, TomekLinks
@@ -299,59 +299,59 @@ def _replace_values(df, column, old_value, new_value):
     df.loc[(df[column] == old_value), column] = new_value
 
 
-def _select_relevant_features(df, label_column, mode, n_folds=5, skip_sulov=False, variance_threshold=0.95):
-    if mode == 'featurewiz':
-        log_print(f'Performing feature selection with FeatureWiz...')
-        X, y = df.drop(columns=[label_column]), df[label_column]
-        wiz = FeatureWiz(corr_limit=0.90, skip_sulov=skip_sulov, verbose=0)
-        wiz.fit(X, y)
-        relevant_columns = [col for col in X.columns if col in wiz.features]
-        log_print(f'Features that will be kept: {relevant_columns}')
-        irrelevant_cols = [col for col in X.columns if col not in wiz.features]
-        log_print(f'Features that will be dropped: {irrelevant_cols}')
-        return df.drop(columns=irrelevant_cols)
-    elif mode == 'ipca':
-        log_print(
-            f'Performing feature selection with Incremental PCA (variance_threshold={variance_threshold:y.2f})...')
-        X, y = df.drop(columns=[label_column]), df[label_column]
-        X_columns, X_scaled = X.columns, StandardScaler(
-            copy=False).fit_transform(X, y)
-        current_n_components = int(len(X_columns)/2)
-        current_variance_ratio = 0.0
-        while current_variance_ratio < variance_threshold:
-            t.tic()
-            current_n_components += 1
-            ipca = IncrementalPCA(
-                n_components=current_n_components, batch_size=50*len(X_columns)).fit(X_scaled)
-            current_variance_ratio = np.max(
-                np.cumsum(ipca.explained_variance_ratio_))
-            log_print(
-                f'n_components={current_n_components} -> variance_ratio={current_variance_ratio:.6f} (iteration took {t.tocvalue(True):.2f}s)')
-        return pd.DataFrame(data=ipca.transform(X_scaled), columns=ipca.get_feature_names_out(), index=df.index, copy=False).assign(label=y)
-    elif mode == 'pca':
-        log_print(
-            f'Performing feature selection with PCA (variance_threshold={variance_threshold})...')
-        X, y = df.drop(columns=[label_column]), df[label_column]
-        X_columns, X_scaled = X.columns, StandardScaler(
-            copy=False).fit_transform(X, y)
-        pca = PCA(n_components=variance_threshold,
-                  svd_solver='full').fit(X_scaled)
-        return pd.DataFrame(data=pca.transform(X_scaled), columns=pca.get_feature_names_out(), index=df.index, copy=False).assign(label=y)
-    elif mode == 'rfecv':
-        log_print(
-            f'Performing {n_folds}-fold recursive feature elimination...')
-        # X, y = df.drop(columns=[label_column]).select_dtypes(include='number'), df[label_column]
-        X, y = df.drop(columns=[label_column]), df[label_column]
-        rfecv = RFECV(estimator=Ridge(random_state=SEED),
-                      cv=n_folds, n_jobs=JOBS, verbose=1)
-        rfecv.fit(X, y)
-        feature_mask = X.columns[rfecv.get_support()]
-        relevant_columns = [
-            col for col in X.columns if col not in feature_mask]
-        log_print(f'Features that will be kept: {relevant_columns}')
-        irrelevant_cols = [col for col in X.columns if col in feature_mask]
-        log_print(f'Features that will be dropped: {irrelevant_cols}')
-        return df.drop(columns=irrelevant_cols)
+# def _select_relevant_features(df, label_column, mode, n_folds=5, skip_sulov=False, variance_threshold=0.95):
+#     if mode == 'featurewiz':
+#         log_print(f'Performing feature selection with FeatureWiz...')
+#         X, y = df.drop(columns=[label_column]), df[label_column]
+#         wiz = FeatureWiz(corr_limit=0.90, skip_sulov=skip_sulov, verbose=0)
+#         wiz.fit(X, y)
+#         relevant_columns = [col for col in X.columns if col in wiz.features]
+#         log_print(f'Features that will be kept: {relevant_columns}')
+#         irrelevant_cols = [col for col in X.columns if col not in wiz.features]
+#         log_print(f'Features that will be dropped: {irrelevant_cols}')
+#         return df.drop(columns=irrelevant_cols)
+#     elif mode == 'ipca':
+#         log_print(
+#             f'Performing feature selection with Incremental PCA (variance_threshold={variance_threshold:y.2f})...')
+#         X, y = df.drop(columns=[label_column]), df[label_column]
+#         X_columns, X_scaled = X.columns, StandardScaler(
+#             copy=False).fit_transform(X, y)
+#         current_n_components = int(len(X_columns)/2)
+#         current_variance_ratio = 0.0
+#         while current_variance_ratio < variance_threshold:
+#             t.tic()
+#             current_n_components += 1
+#             ipca = IncrementalPCA(
+#                 n_components=current_n_components, batch_size=50*len(X_columns)).fit(X_scaled)
+#             current_variance_ratio = np.max(
+#                 np.cumsum(ipca.explained_variance_ratio_))
+#             log_print(
+#                 f'n_components={current_n_components} -> variance_ratio={current_variance_ratio:.6f} (iteration took {t.tocvalue(True):.2f}s)')
+#         return pd.DataFrame(data=ipca.transform(X_scaled), columns=ipca.get_feature_names_out(), index=df.index, copy=False).assign(label=y)
+#     elif mode == 'pca':
+#         log_print(
+#             f'Performing feature selection with PCA (variance_threshold={variance_threshold})...')
+#         X, y = df.drop(columns=[label_column]), df[label_column]
+#         X_columns, X_scaled = X.columns, StandardScaler(
+#             copy=False).fit_transform(X, y)
+#         pca = PCA(n_components=variance_threshold,
+#                   svd_solver='full').fit(X_scaled)
+#         return pd.DataFrame(data=pca.transform(X_scaled), columns=pca.get_feature_names_out(), index=df.index, copy=False).assign(label=y)
+#     elif mode == 'rfecv':
+#         log_print(
+#             f'Performing {n_folds}-fold recursive feature elimination...')
+#         # X, y = df.drop(columns=[label_column]).select_dtypes(include='number'), df[label_column]
+#         X, y = df.drop(columns=[label_column]), df[label_column]
+#         rfecv = RFECV(estimator=Ridge(random_state=SEED),
+#                       cv=n_folds, n_jobs=JOBS, verbose=1)
+#         rfecv.fit(X, y)
+#         feature_mask = X.columns[rfecv.get_support()]
+#         relevant_columns = [
+#             col for col in X.columns if col not in feature_mask]
+#         log_print(f'Features that will be kept: {relevant_columns}')
+#         irrelevant_cols = [col for col in X.columns if col in feature_mask]
+#         log_print(f'Features that will be dropped: {irrelevant_cols}')
+#         return df.drop(columns=irrelevant_cols)
 
 
 def _sort_columns(df, rightmost_columns):

@@ -15,7 +15,7 @@ from feature_engine.selection.drop_duplicate_features import \
     DropDuplicateFeatures
 from feature_engine.transformation import YeoJohnsonTransformer
 from pandas.api.types import is_numeric_dtype, is_string_dtype
-from pandas_dq import dq_report
+# from pandas_dq import dq_report
 from scipy.stats import skew
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from typing_extensions import Self
@@ -41,17 +41,17 @@ class BasePreprocessingPipeline(ABC):
         log_print(f'Loading cached files from \'{base_path}\'...')
         self.data = pd.read_parquet(
             os.path.join(base_path, self.name + '.parquet'))
-        with open(os.path.join(base_path, 'metadata.json')) as json_file:
-            self.metadata = json.load(json_file)
+        # with open(os.path.join(base_path, 'metadata.json')) as json_file:
+        #     self.metadata = json.load(json_file)
 
     @abstractmethod
     def prepare(self) -> None:
         pass
 
-    def analyze(self) -> None:
-        dqr = dq_report(self.data, target=self.target,
-                        html=True, csv_engine="pandas", verbose=1)
-        log_print(dqr)
+    # def analyze(self) -> None:
+    #     dqr = dq_report(self.data, target=self.target,
+    #                     html=True, csv_engine="pandas", verbose=1)
+    #     log_print(dqr)
 
     @abstractmethod
     def load(self) -> None:
@@ -152,7 +152,7 @@ class BasePreprocessingPipeline(ABC):
                         ordinal.append(col)
                     elif n_uniques[col] < 30:
                         value_counts = self.data[col].value_counts()
-                        percents = (value_counts / len(self.data[col])) * 100
+                        percents = (value_counts / len(self.data[col])) * 100.0
                         if any(percents < 0.05):
                             rare_label.append(col)
                         one_hot.append(col)
@@ -245,7 +245,7 @@ class BasePreprocessingPipeline(ABC):
         self.data.to_parquet(path=parquet_filename, index=False)
         # Metadata
         metadata_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', 'metadata.json')
+            os.getcwd(), self.folder, 'generated', self.name + '.json')
         log_print(f'Persisting metadata to \'{metadata_filename}\'...')
         with open(metadata_filename, 'w') as fp:
             json.dump(self.metadata, fp, default=str)
