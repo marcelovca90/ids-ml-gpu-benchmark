@@ -2,22 +2,8 @@ import json
 import os
 from abc import ABC, abstractmethod
 
-import numpy as np
 import pandas as pd
 from fastai.tabular.all import df_shrink
-from feature_engine.encoding import (OneHotEncoder, OrdinalEncoder,
-                                     RareLabelEncoder)
-from feature_engine.selection.drop_constant_features import \
-    DropConstantFeatures
-from feature_engine.selection.drop_correlated_features import \
-    DropCorrelatedFeatures
-from feature_engine.selection.drop_duplicate_features import \
-    DropDuplicateFeatures
-from feature_engine.transformation import YeoJohnsonTransformer
-from pandas.api.types import is_numeric_dtype, is_string_dtype
-# from pandas_dq import dq_report
-from scipy.stats import skew
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from typing_extensions import Self
 
 from modules.logging.logger import function_call_logger, log_print
@@ -41,35 +27,16 @@ class BasePreprocessingPipeline(ABC):
         log_print(f'Loading cached files from \'{base_path}\'...')
         self.data = pd.read_parquet(
             os.path.join(base_path, self.name + '.parquet'))
-        # with open(os.path.join(base_path, 'metadata.json')) as json_file:
-        #     self.metadata = json.load(json_file)
+        with open(os.path.join(base_path, 'metadata.json')) as json_file:
+            self.metadata = json.load(json_file)
 
     @abstractmethod
     def prepare(self) -> None:
         pass
 
-    # def analyze(self) -> None:
-    #     dqr = dq_report(self.data, target=self.target,
-    #                     html=True, csv_engine="pandas", verbose=1)
-    #     log_print(dqr)
-
     @abstractmethod
     def load(self) -> None:
         pass
-
-    def remove_na_duplicates(self) -> None:
-        num_duplicates_before = self.data.duplicated().sum()
-        num_nas_before = self.data.isna().sum().sum()
-        log_print(f"Duplicates before cleaning: {num_duplicates_before}")
-        log_print(f"NAs before cleaning: {num_nas_before}")
-        self.data.drop_duplicates(inplace=True)
-        self.data.dropna(inplace=True)
-        num_duplicates_after = self.data.duplicated().sum()
-        num_nas_after = self.data.isna().sum().sum()
-        log_print(f"Duplicates after cleaning: {num_duplicates_after}")
-        log_print(f"NAs after cleaning: {num_nas_after}")
-        log_print(f"Memory usage after cleaning:")
-        log_memory_usage(self.data)
 
     @function_call_logger
     def sanitize(self) -> None:
@@ -95,114 +62,34 @@ class BasePreprocessingPipeline(ABC):
                 self.data[col] = pd.to_numeric(self.data[col], errors='raise')
             except Exception as e:
                 pass
-        self.data[self.target] = self.data[self.target].astype('category')
+        # self.data[self.target] = self.data[self.target].astype('category')
         log_print(f"Data types and memory usage before conversion:")
         log_data_types(self.data)
         log_memory_usage(self.data)
 
-    @function_call_logger
-    def drop_irrelevant_features(self) -> None:
-
-        feature_cols = [x for x in self.data.columns.tolist()
-                        if x != self.target]
-        constant_filter = DropConstantFeatures(variables=feature_cols)
-        filtered_data = constant_filter.fit_transform(
-            self.data.drop(columns=[self.target]), None)
-        self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
-        dropped_cols = constant_filter.features_to_drop_
-        log_print(f'Constant columns {dropped_cols} were dropped.')
-
-        feature_cols = [x for x in self.data.columns.tolist()
-                        if x != self.target]
-        duplicate_filter = DropDuplicateFeatures(variables=feature_cols)
-        filtered_data = duplicate_filter.fit_transform(
-            self.data.drop(columns=[self.target]), None)
-        self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
-        dropped_cols = duplicate_filter.features_to_drop_
-        log_print(f'Duplicate columns {dropped_cols} were dropped.')
-
-        feature_cols = [col for col in self.data.columns.tolist()
-                        if is_numeric_dtype(self.data.dtypes[col])
-                        and col != self.target]
-        correlated_filter = DropCorrelatedFeatures(
-            variables=feature_cols, threshold=1.0)
-        filtered_data = correlated_filter.fit_transform(
-            self.data.drop(columns=[self.target]), None)
-        self.data = pd.concat([filtered_data, self.data[self.target]], axis=1)
-        dropped_cols = correlated_filter.features_to_drop_
-        log_print(f'Correlated columns {dropped_cols} were dropped.')
-
-        log_print(f"Memory usage after dropping irrelevant features:")
+    def remove_na_duplicates(self) -> None:
+        num_duplicates_before = self.data.duplicated().sum()
+        num_nas_before = self.data.isna().sum().sum()
+        log_print(f"Duplicates before cleaning: {num_duplicates_before}")
+        log_print(f"NAs before cleaning: {num_nas_before}")
+        self.data.drop_duplicates(inplace=True)
+        self.data.dropna(inplace=True)
+        num_duplicates_after = self.data.duplicated().sum()
+        num_nas_after = self.data.isna().sum().sum()
+        log_print(f"Duplicates after cleaning: {num_duplicates_after}")
+        log_print(f"NAs after cleaning: {num_nas_after}")
+        log_print(f"Memory usage after cleaning:")
         log_memory_usage(self.data)
 
     @function_call_logger
-    def encode(self) -> None:
-
-        ordinal, rare_label, one_hot, yeo_johnson, min_max = [], [], [], [], []
-
-        n_uniques = {c: self.data[c].nunique()
-                     for c in self.data.columns.tolist()}
-
-        for col in self.data.drop(columns=[self.target]).columns.tolist():
-            if is_numeric_dtype(self.data.dtypes[col]):
-                if n_uniques[col] > 2:
-                    diffs = np.diff(self.data[col].values)
-                    is_monotonic = all(diffs >= 0) or all(diffs <= 0)
-                    if is_monotonic:
-                        ordinal.append(col)
-                    elif n_uniques[col] < 30:
-                        value_counts = self.data[col].value_counts()
-                        percents = (value_counts / len(self.data[col])) * 100.0
-                        if any(percents < 0.05):
-                            rare_label.append(col)
-                        one_hot.append(col)
-                    else:
-                        Q1 = self.data[col].quantile(0.25)
-                        Q3 = self.data[col].quantile(0.75)
-                        IQR = Q3 - Q1
-                        if any(self.data[col] > (1.5 * IQR)):
-                            min_max.append(col)
-                        else:
-                            yeo_johnson.append(col)
-            elif is_string_dtype(self.data.dtypes[col]):
-                if n_uniques[col] > 1 and n_uniques[col] <= 10:
-                    one_hot.append(col)
-
-        categorical_mappings = {x: 'category' for x in one_hot}
-        self.data = self.data.astype(categorical_mappings)
-
-        if ordinal:
-            ord_enc = OrdinalEncoder(variables=ordinal)
-            self.data = ord_enc.fit_transform(self.data, None)
-            log_print(f"Applied OrdinalEncoder ({ord_enc.encoder_dict_})")
-
-        if rare_label:
-            rare_enc = RareLabelEncoder(variables=rare_label)
-            self.data = rare_enc.fit_transform(self.data, None)
-            log_print(f"Applied RareLabelEncoder ({rare_enc.encoder_dict_})")
-
-        if one_hot:
-            one_hot_enc = OneHotEncoder(variables=one_hot)
-            self.data = one_hot_enc.fit_transform(self.data, None)
-            log_print(f"Applied OneHotEncoder ({one_hot_enc.encoder_dict_})")
-
-        if min_max:
-            scaler = MinMaxScaler()
-            self.data[min_max] = scaler.fit_transform(self.data[min_max], None)
-            log_print(f"Applied MinMaxScaler ({min_max}: {scaler.scale_})")
-
-        if yeo_johnson:
-            yjt = YeoJohnsonTransformer(variables=yeo_johnson)
-            self.data = yjt.fit_transform(self.data, None)
-            log_print(f"Applied YeoJohnsonTransformer ({yjt.lambda_dict_})")
-
-        lbl_enc = LabelEncoder()
-        self.data[self.target] = lbl_enc.fit_transform(self.data[self.target])
-        log_print(f"Applied LabelEncoder ({self.target} @ {lbl_enc.classes_})")
-
-    @function_call_logger
-    def reset_index(self) -> None:
-        self.data.reset_index(drop=True, inplace=True)
+    def shrink_dtypes(self) -> None:
+        log_print(f"Data types and memory usage before shrinkage:")
+        log_data_types(self.data)
+        log_memory_usage(self.data)
+        self.data = df_shrink(self.data, obj2cat=False, int2uint=False)
+        log_print(f"Data types and memory usage after shrinkage:")
+        log_data_types(self.data)
+        log_memory_usage(self.data)
 
     @function_call_logger
     def sort_columns(self) -> None:
@@ -212,14 +99,8 @@ class BasePreprocessingPipeline(ABC):
         self.data = self.data.reindex(columns=cols)
 
     @function_call_logger
-    def shrink_dtypes(self) -> None:
-        log_print(f"Data types and memory usage before shrinkage:")
-        log_data_types(self.data)
-        log_memory_usage(self.data)
-        self.data = df_shrink(self.data, obj2cat=True, int2uint=False)
-        log_print(f"Data types and memory usage after shrinkage:")
-        log_data_types(self.data)
-        log_memory_usage(self.data)
+    def reset_index(self) -> None:
+        self.data.reset_index(drop=True, inplace=True)
 
     @function_call_logger
     def update_metadata(self) -> None:
@@ -257,12 +138,10 @@ class BasePreprocessingPipeline(ABC):
         else:
             self.prepare()
             self.load()
-            self.set_dtypes()
             self.sanitize()
-            self.encode()
-            self.shrink_dtypes()
-            self.drop_irrelevant_features()
+            self.set_dtypes()
             self.remove_na_duplicates()
+            self.shrink_dtypes()
             self.sort_columns()
             self.reset_index()
             self.update_metadata()
