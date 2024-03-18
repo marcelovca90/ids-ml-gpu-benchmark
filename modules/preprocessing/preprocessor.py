@@ -115,10 +115,10 @@ class BasePreprocessingPipeline(ABC):
     @function_call_logger
     def save(self) -> None:
         # Dataset (CSV)
-        csv_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', self.name + '.csv')
-        log_print(f'Persisting dataset to \'{csv_filename}\'...')
-        self.data.to_csv(path_or_buf=csv_filename, header=True, index=False)
+        # csv_filename = os.path.join(
+        #     os.getcwd(), self.folder, 'generated', self.name + '.csv')
+        # log_print(f'Persisting dataset to \'{csv_filename}\'...')
+        # self.data.to_csv(path_or_buf=csv_filename, header=True, index=False)
         # Dataset (Parquet)
         parquet_filename = os.path.join(
             os.getcwd(), self.folder, 'generated', self.name + '.parquet')
