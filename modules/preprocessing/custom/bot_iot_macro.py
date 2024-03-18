@@ -6,7 +6,7 @@ import pandas as pd
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from modules.preprocessing.utils import _replace_values
+from modules.preprocessing.utils import _convert_to_int, _replace_values
 
 
 class BoT_IoT_Macro(BasePreprocessingPipeline):
@@ -38,8 +38,8 @@ class BoT_IoT_Macro(BasePreprocessingPipeline):
             df = pd.read_csv(filename_csv, header=None,
                              names=columns, low_memory=False)
             df = df.rename(columns={'category': self.target})
-            df = df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr',
-                                  'seq', 'attack', 'subcategory'])
+            df = df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr', 'seq',
+                                  'ltime', 'attack', 'subcategory'])
             df.to_parquet(filename_parquet)
             log_print(f'Converted file \'{filename_csv}\' to parquet.')
 
@@ -57,3 +57,9 @@ class BoT_IoT_Macro(BasePreprocessingPipeline):
             data_frames.append(pd.read_parquet(full_filename))
             log_print(f'Loaded parquet file \'{base_filename}\'.')
         self.data = pd.concat(data_frames, copy=False)
+
+    @function_call_logger
+    def sanitize(self) -> None:
+        super().sanitize()
+        self.data['sport'] = self.data['sport'].apply(_convert_to_int)
+        self.data['dport'] = self.data['dport'].apply(_convert_to_int)

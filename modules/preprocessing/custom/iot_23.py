@@ -65,9 +65,9 @@ class IoT_23(BasePreprocessingPipeline):
     def sanitize(self) -> None:
         log_print('Value counts before sanitization:')
         log_value_counts(self.data, self.target)
-        _replace_values(self.data, 'duration',   '-',                                                           0.0)                                        # noqa
-        _replace_values(self.data, 'orig_bytes', '-',                                                           0)                                          # noqa
-        _replace_values(self.data, 'resp_bytes', '-',                                                           0)                                          # noqa
+        _replace_values(self.data, 'duration',       '-',                                                       0.0)                                        # noqa
+        _replace_values(self.data, 'orig_bytes',     '-',                                                       0)                                          # noqa
+        _replace_values(self.data, 'resp_bytes',     '-',                                                       0)                                          # noqa
         _replace_values(self.data, self.target,      '-   Malicious   Attack',                                  'Attack')                                   # noqa
         _replace_values(self.data, self.target,      '(empty)   Malicious   Attack',                            'Attack')                                   # noqa
         _replace_values(self.data, self.target,      '(empty)   Benign   -',                                    'Benign')                                   # noqa
