@@ -130,6 +130,7 @@ dmypy.json
 # Other
 **/.DS_Store
 **/Thumbs.db
+**/.vscode/*
 backup/*
 datasets/*
 results/*
