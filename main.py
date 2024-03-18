@@ -18,15 +18,15 @@ from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 if __name__ == "__main__":
 
     for cls in [
-        # IoT_23,
-        # MQTT_IoT_IDS2020_PacketFeatures,
-        # MQTT_IoT_IDS2020_UniflowFeatures,
-        # MQTT_IoT_IDS2020_BiflowFeatures,
-        # IoT_Network_Intrusion_Macro,
-        # IoT_Network_Intrusion_Micro,
-        # KDD_Cup_1999,
-        # BoT_IoT_Micro,
-        # BoT_IoT_Macro
+        BoT_IoT_Micro,
+        BoT_IoT_Macro,
+        IoT_23,
+        IoT_Network_Intrusion_Macro,
+        IoT_Network_Intrusion_Micro,
+        KDD_Cup_1999,
+        MQTT_IoT_IDS2020_PacketFeatures,
+        MQTT_IoT_IDS2020_UniflowFeatures,
+        MQTT_IoT_IDS2020_BiflowFeatures,
         UNSW_NB15
     ]:
 
