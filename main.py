@@ -15,6 +15,7 @@ from modules.preprocessing.custom.mqtt_iot_ids2020_packet import \
     MQTT_IoT_IDS2020_PacketFeatures
 from modules.preprocessing.custom.mqtt_iot_ids2020_uniflow import \
     MQTT_IoT_IDS2020_UniflowFeatures
+from modules.preprocessing.custom.nids import NIDS
 from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 
 if __name__ == "__main__":
@@ -31,11 +32,9 @@ if __name__ == "__main__":
         MQTT_IoT_IDS2020_PacketFeatures,
         MQTT_IoT_IDS2020_UniflowFeatures,
         MQTT_IoT_IDS2020_BiflowFeatures,
+        NIDS,
         UNSW_NB15
     ]
-
-    # TODO: add https://www.kaggle.com/datasets/dhoogla/cicbotiot
-    # TODO: add https://www.unb.ca/cic/datasets/iotdataset-2023.html
 
     for binarize_flag in tqdm(binarize_flags, desc='Binarize', leave=False):
 
