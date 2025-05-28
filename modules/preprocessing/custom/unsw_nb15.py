@@ -1,6 +1,9 @@
 import os
 import re
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
@@ -8,11 +11,12 @@ from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 from modules.preprocessing.utils import _replace_values
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class UNSW_NB15(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'unsw_nb15')
         self.name = 'UNSW_NB15'
         self.target = 'label'
@@ -64,5 +68,9 @@ class UNSW_NB15(BasePreprocessingPipeline):
         self.data['is_ftp_login'].fillna(-1.0, inplace=True)
         self.data['ct_ftp_cmd'].fillna('-1', inplace=True)
         self.data[self.target].fillna('Normal', inplace=True)
+        if self.binarize:
+            self.data[self.target] = np.where(
+                (self.data[self.target] == 'Benign'), 'Benign', 'Malign'
+            )
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)

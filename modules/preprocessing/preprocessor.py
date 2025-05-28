@@ -3,7 +3,7 @@ import os
 from abc import ABC, abstractmethod
 
 import pandas as pd
-from fastai.tabular.all import df_shrink
+from dtype_diet import optimize_dtypes, report_on_dataframe
 from typing_extensions import Self
 
 from modules.logging.logger import function_call_logger, log_print
@@ -13,13 +13,15 @@ from modules.preprocessing.stats import (log_data_types, log_memory_usage,
 
 class BasePreprocessingPipeline(ABC):
 
-    def __init__(self) -> None:
+    def __init__(self, binarize=False) -> None:
         self.data: pd.DataFrame = None
         self.folder: str = None
         self.name: str = None
         self.target: str = None
         self.metadata: dict = dict()
         self.seed = 42
+        self.binarize = binarize
+        self.kind = 'Binary' if self.binarize else 'Multiclass'
 
     @function_call_logger
     def preload(self) -> None:
@@ -38,17 +40,36 @@ class BasePreprocessingPipeline(ABC):
     def load(self) -> None:
         pass
 
+    # @function_call_logger
+    # def sanitize(self) -> None:
+    #     log_print('Value counts before sanitization:')
+    #     log_value_counts(self.data, self.target)
+    #     for col in self.data.columns.tolist():
+    #         if 'int' in str(self.data[col].dtype):
+    #             self.data[col].fillna(0, inplace=True)
+    #         elif 'float' in str(self.data[col].dtype):
+    #             self.data[col].fillna(0.0, inplace=True)
+    #         elif 'object' == str(self.data[col].dtype):
+    #             self.data[col].fillna('0', inplace=True)
+    #     log_print('Value counts after sanitization:')
+    #     log_value_counts(self.data, self.target)
+
     @function_call_logger
     def sanitize(self) -> None:
         log_print('Value counts before sanitization:')
         log_value_counts(self.data, self.target)
-        for col in self.data.columns.tolist():
-            if 'int' in str(self.data[col].dtype):
-                self.data[col].fillna(0, inplace=True)
-            elif 'float' in str(self.data[col].dtype):
-                self.data[col].fillna(0.0, inplace=True)
-            elif 'object' == str(self.data[col].dtype):
-                self.data[col].fillna('0', inplace=True)
+
+        for col in self.data.columns:
+            dtype = self.data[col].dtype
+            if pd.api.types.is_integer_dtype(dtype):
+                self.data[col] = self.data[col].fillna(0)
+            elif pd.api.types.is_float_dtype(dtype):
+                self.data[col] = self.data[col].fillna(0.0)
+            elif pd.api.types.is_object_dtype(dtype) or pd.api.types.is_string_dtype(dtype):
+                self.data[col] = self.data[col].fillna('0')
+            else:
+                log_print(f"Skipping column {col} with unsupported dtype: {dtype}")
+
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
 
@@ -86,7 +107,10 @@ class BasePreprocessingPipeline(ABC):
         log_print(f"Data types and memory usage before shrinkage:")
         log_data_types(self.data)
         log_memory_usage(self.data)
-        self.data = df_shrink(self.data, obj2cat=False, int2uint=False)
+        df_report = report_on_dataframe(self.data, unit="MB", optimize="computation")
+        self.data = optimize_dtypes(self.data, df_report)
+        for col in self.data.select_dtypes(include=['integer', 'float']).columns:
+            self.data[col] = pd.to_numeric(self.data[col], downcast='integer' if self.data[col].dtype.kind == 'i' else 'float')
         log_print(f"Data types and memory usage after shrinkage:")
         log_data_types(self.data)
         log_memory_usage(self.data)
@@ -104,6 +128,7 @@ class BasePreprocessingPipeline(ABC):
 
     @function_call_logger
     def update_metadata(self) -> None:
+        self.metadata['kind'] = self.kind
         self.metadata['columns'] = self.data.columns.to_list()
         self.metadata['description'] = self.data.describe().to_dict()
         self.metadata['dtypes'] = self.data.dtypes.to_dict()
@@ -121,15 +146,17 @@ class BasePreprocessingPipeline(ABC):
         # self.data.to_csv(path_or_buf=csv_filename, header=True, index=False)
         # Dataset (Parquet)
         parquet_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', self.name + '.parquet')
+            os.getcwd(), self.folder, 'generated',
+            f'{self.name}_{self.kind}.parquet')
         log_print(f'Persisting dataset to \'{parquet_filename}\'...')
         self.data.to_parquet(path=parquet_filename, index=False)
         # Metadata
         metadata_filename = os.path.join(
-            os.getcwd(), self.folder, 'generated', self.name + '.json')
+            os.getcwd(), self.folder, 'generated',
+            f'{self.name}_{self.kind}.json')
         log_print(f'Persisting metadata to \'{metadata_filename}\'...')
         with open(metadata_filename, 'w') as fp:
-            json.dump(self.metadata, fp, default=str)
+            json.dump(self.metadata, fp, default=str, indent=4)
 
     @function_call_logger
     def pipeline(self, preload=False) -> Self:

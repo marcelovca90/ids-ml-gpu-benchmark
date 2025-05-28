@@ -1,8 +1,10 @@
 import json
 import numbers
 import os
+import sys
 from collections import OrderedDict
 from operator import getitem
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +22,8 @@ from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.tree import ExtraTreeClassifier
+
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 from modules.logging.logger import log_print
 

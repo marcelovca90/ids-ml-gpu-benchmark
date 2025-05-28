@@ -1,16 +1,20 @@
 import os
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.utils import _replace_values
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class MQTT_IoT_IDS2020_UniflowFeatures(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'mqtt_iot_ids2020')
         self.name = 'MQTT_IoT_IDS2020_UniflowFeatures'
         self.target = 'label'
@@ -42,9 +46,13 @@ class MQTT_IoT_IDS2020_UniflowFeatures(BasePreprocessingPipeline):
             _replace_values(df, self.target,   0, 'normal')
             _replace_values(df, self.target, '0', 'normal')
             _replace_values(df, self.target,   1, base_filename.replace(
-                'biflow_', '').replace('.csv', ''))
+                'uniflow_', '').replace('.csv', ''))
             _replace_values(df, self.target, '1', base_filename.replace(
-                'biflow_', '').replace('.csv', ''))
+                'uniflow_', '').replace('.csv', ''))
+            if self.binarize:
+                df[self.target] = np.where(
+                    (df[self.target] == 'normal'), 'Benign', 'Malign'
+                )
             df.to_parquet(filename_parquet)
             log_print(f'Converted file \'{filename_csv}\' to parquet.')
 

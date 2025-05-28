@@ -1,4 +1,6 @@
 import os
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,11 +11,12 @@ from modules.preprocessing.stats import log_data_types, log_value_counts
 from modules.preprocessing.utils import (_label_encode, _one_hot_encode,
                                          _replace_values)
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class IoT_23(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'iot_23')
         self.name = 'IoT_23'
         self.target = 'label'
@@ -21,9 +24,8 @@ class IoT_23(BasePreprocessingPipeline):
     @function_call_logger
     def prepare(self) -> None:
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
-        def filter_fn(x): return ('bro' in x)
         all_folders = [x[0] for x in os.walk(work_folder)]
-        sub_folders = list(filter(filter_fn, all_folders))
+        sub_folders = [x for x in all_folders if 'bro' in x]
         base_filename = 'conn.log.labeled'
         for folder in sub_folders:
             filename_csv = os.path.join(folder, base_filename)
@@ -46,9 +48,8 @@ class IoT_23(BasePreprocessingPipeline):
     @function_call_logger
     def load(self) -> None:
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
-        def filter_fn(x): return ('bro' in x)
         all_folders = [x[0] for x in os.walk(work_folder)]
-        sub_folders = filter(filter_fn, all_folders)
+        sub_folders = [x for x in all_folders if 'bro' in x]
         base_filename = 'conn.log.parquet'
         data_frames = []
         for folder in sub_folders:
@@ -96,5 +97,9 @@ class IoT_23(BasePreprocessingPipeline):
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan',               'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '(empty)   Malicious   PartOfAHorizontalPortScan',         'PartOfAHorizontalPortScan')                # noqa
         _replace_values(self.data, self.target,      '-   Malicious   PartOfAHorizontalPortScan-Attack',        'PartOfAHorizontalPortScan-Attack')         # noqa
+        if self.binarize:
+            self.data[self.target] = np.where(
+                (self.data[self.target] == 'Benign'), 'Benign', 'Malign'
+            )
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)

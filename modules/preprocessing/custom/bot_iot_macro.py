@@ -1,6 +1,9 @@
 import os
 import re
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
@@ -8,11 +11,12 @@ from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 from modules.preprocessing.utils import _convert_to_int, _replace_values
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class BoT_IoT_Macro(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'bot_iot')
         self.name = 'BoT_IoT_Macro'
         self.target = 'label'
@@ -40,6 +44,10 @@ class BoT_IoT_Macro(BasePreprocessingPipeline):
             df = df.rename(columns={'category': self.target})
             df = df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr', 'seq',
                                   'ltime', 'attack', 'subcategory'])
+            if self.binarize:
+                df[self.target] = np.where(
+                    (df[self.target] == 'Normal'), 'Benign', 'Malign'
+                )
             df.to_parquet(filename_parquet)
             log_print(f'Converted file \'{filename_csv}\' to parquet.')
 
