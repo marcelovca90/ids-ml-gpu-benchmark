@@ -8,7 +8,7 @@ from dtype_diet import optimize_dtypes, report_on_dataframe
 from typing_extensions import Dict, List, Self, Union
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.preprocessing.complexity_cpu import (compute_all_complexity_measures,
+from modules.preprocessing.complexity_gpu import (compute_all_complexity_measures,
                                               smart_categorical_encode)
 from modules.preprocessing.stats import (log_data_types, log_memory_usage,
                                          log_value_counts)
