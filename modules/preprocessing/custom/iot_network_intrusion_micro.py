@@ -107,15 +107,15 @@ class IoT_Network_Intrusion_Micro(BasePreprocessingPipeline):
                     raise(e)
 
     @function_call_logger
-    def aggregate_csvs(self, mode='micro'):
+    def aggregate_csvs(self):
         df_list = []
         work_folder = os.path.join(os.getcwd(), self.folder, 'source', 'csv')
         for csv_filename in os.listdir(work_folder):
             parts = csv_filename.split('_')
             category, subcategory = parts[1], parts[2].replace('.csv', '')
-            df = pd.read_csv(
-                os.path.join(work_folder, csv_filename), on_bad_lines="skip")
-            df['label'] = category if mode == 'macro' else f"{category}_{subcategory}"
+            df = pd.read_csv(os.path.join(work_folder, csv_filename),
+                             low_memory=False, on_bad_lines="skip")
+            df['label'] = f"{category}_{subcategory}"
             df = df.drop(columns=['_ws.col.cls_time'])
             df_list.append(df)
         ans = pd.concat(df_list).infer_objects()

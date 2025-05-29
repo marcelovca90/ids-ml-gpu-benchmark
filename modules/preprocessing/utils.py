@@ -3,6 +3,7 @@ import numbers
 import os
 import sys
 from collections import OrderedDict
+from datetime import datetime
 from operator import getitem
 from pathlib import Path
 
@@ -30,6 +31,13 @@ from modules.logging.logger import log_print
 t = TicToc()
 JOBS = 4
 SEED = 10
+
+
+def now():
+    now = datetime.now()
+    yyyymmdd_hhmmss_part = now.strftime('%Y-%m-%d %H:%M:%S')
+    ms_part = f'{int(now.microsecond / 1000):03d}'
+    return f'{yyyymmdd_hhmmss_part},{ms_part}'
 
 
 def _baseline_evaluation(df, label_column='label'):

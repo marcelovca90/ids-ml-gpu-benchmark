@@ -56,8 +56,6 @@ class IoT_23(BasePreprocessingPipeline):
             full_filename = os.path.join(folder, base_filename)
             log_print(f'Started loading parquet files in \'{folder}\'.')
             df = pd.read_parquet(full_filename)
-            # df = df.drop_duplicates()
-            # df = df.dropna()
             data_frames.append(df)
             log_print(f'Finished loading parquet files in \'{folder}\'.')
         self.data = pd.concat(data_frames, copy=False)

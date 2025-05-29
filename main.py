@@ -1,3 +1,7 @@
+import os
+import shutil
+from pathlib import Path
+
 from tqdm import tqdm
 
 from modules.logging.logger import log_print
@@ -17,6 +21,7 @@ from modules.preprocessing.custom.mqtt_iot_ids2020_uniflow import \
     MQTT_IoT_IDS2020_UniflowFeatures
 from modules.preprocessing.custom.nids import NIDS
 from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
+from modules.preprocessing.utils import now
 
 if __name__ == "__main__":
 
@@ -41,6 +46,21 @@ if __name__ == "__main__":
         for dataset_cls in tqdm(dataset_classes, desc='Dataset', leave=False):
 
             try:
+                log_print(f'Started processing {dataset_cls.__name__}.')
                 dataset_cls(binarize=binarize_flag).pipeline()
+                log_print(f'Finished processing {dataset_cls.__name__}.')
             except Exception as e:
-                log_print(f'{dataset_cls.__class__.__name__}: {str(e)}')
+                log_print(f'Error processing {dataset_cls.__name__}: {str(e)}')
+
+    candidate_files = list(Path("datasets").rglob("*"))
+    for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
+        for kind in tqdm(['Binary', 'Multiclass'], desc='Kind', leave=False):
+            if (src_path.is_file() and kind in src_path.name and
+                ('generated' in str(src_path.absolute().resolve())) and
+                ('.parquet' in src_path.name or '.json' in src_path.name)):
+                dst_path = Path(os.path.join('ready', kind, src_path.name))
+                if dst_path.is_file() and dst_path.exists():
+                    dst_path.unlink()
+                tqdm.write(f"[{now()}] Moving {src_path} to {dst_path}...")
+                os.makedirs(Path(dst_path).parent, exist_ok=True)
+                shutil.move(src_path, dst_path)

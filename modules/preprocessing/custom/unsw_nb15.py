@@ -63,11 +63,11 @@ class UNSW_NB15(BasePreprocessingPipeline):
         log_value_counts(self.data, self.target)
         data_obj = self.data.select_dtypes(['object'])
         self.data[data_obj.columns] = data_obj.apply(lambda x: x.str.strip())
-        self.data['sport'].fillna('-1', inplace=True)
-        self.data['ct_flw_http_mthd'].fillna(-1.0, inplace=True)
-        self.data['is_ftp_login'].fillna(-1.0, inplace=True)
-        self.data['ct_ftp_cmd'].fillna('-1', inplace=True)
-        self.data[self.target].fillna('Normal', inplace=True)
+        self.data['sport'] = self.data['sport'].fillna('-1')
+        self.data['ct_flw_http_mthd'] = self.data['ct_flw_http_mthd'].fillna(-1.0)
+        self.data['is_ftp_login'] = self.data['is_ftp_login'].fillna(-1.0)
+        self.data['ct_ftp_cmd'] = self.data['ct_ftp_cmd'].fillna('-1')
+        self.data[self.target] = self.data[self.target].fillna('Normal')
         if self.binarize:
             self.data[self.target] = np.where(
                 (self.data[self.target] == 'Benign'), 'Benign', 'Malign'

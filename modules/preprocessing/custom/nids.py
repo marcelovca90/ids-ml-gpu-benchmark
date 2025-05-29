@@ -37,7 +37,8 @@ class NIDS(BasePreprocessingPipeline):
             self.folder[name] = self.base_folder
             self.target[name] = 'label'
             log_print(f'Converting file \'{csv_filename}\' to parquet.')
-            df = pd.read_csv(csv_filename)
+            df = pd.read_csv(csv_filename, low_memory=False)
+            df = df.replace('<!DOCTYPE html>', '', regex=True)
             assert 'Label' in df.columns and 'Attack' in df.columns
             if self.binarize:
                 df[self.target[name]] = np.where(

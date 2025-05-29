@@ -8,6 +8,8 @@ from dtype_diet import optimize_dtypes, report_on_dataframe
 from typing_extensions import Dict, List, Self, Union
 
 from modules.logging.logger import function_call_logger, log_print
+from modules.preprocessing.complexity_cpu import (compute_all_complexity_measures,
+                                              smart_categorical_encode)
 from modules.preprocessing.stats import (log_data_types, log_memory_usage,
                                          log_value_counts)
 
@@ -24,6 +26,7 @@ class BasePreprocessingPipeline(ABC):
         self.binarize = binarize
         self.kind = 'Binary' if self.binarize else 'Multiclass'
         self.multiple = False
+        self.complexity = None
 
     @function_call_logger
     def preload(self) -> None:
@@ -96,16 +99,18 @@ class BasePreprocessingPipeline(ABC):
     def remove_na_duplicates(self) -> None:
         tmp_data = {self.name: self.data} if not self.multiple else self.data
         for _, data in tmp_data.items():
-            num_duplicates_before = data.duplicated().sum()
             num_nas_before = data.isna().sum().sum()
-            log_print(f"Duplicates before cleaning: {num_duplicates_before}")
+            num_duplicates_before = data.duplicated().sum()
             log_print(f"NAs before cleaning: {num_nas_before}")
-            data.drop_duplicates(inplace=True)
+            log_print(f"Duplicates before cleaning: {num_duplicates_before}")
+            data.dropna(axis='columns', how='all', inplace=True)
+            data.dropna(axis='index', how='any', inplace=True)
             data.dropna(inplace=True)
-            num_duplicates_after = data.duplicated().sum()
+            data.drop_duplicates(inplace=True)
             num_nas_after = data.isna().sum().sum()
-            log_print(f"Duplicates after cleaning: {num_duplicates_after}")
+            num_duplicates_after = data.duplicated().sum()
             log_print(f"NAs after cleaning: {num_nas_after}")
+            log_print(f"Duplicates after cleaning: {num_duplicates_after}")
             log_print(f"Memory usage after cleaning:")
             log_memory_usage(data)
 
@@ -153,8 +158,16 @@ class BasePreprocessingPipeline(ABC):
                 'dtypes': data.dtypes.to_dict(),
                 'shape': data.shape,
                 'memory_usage': data.memory_usage(deep=True).sum(),
-                'value_counts': data[tmp_target[name]].value_counts().to_dict()
+                'value_counts': data[tmp_target[name]].value_counts().to_dict(),
+                'complexity': self.complexity
             }
+
+    @function_call_logger
+    def compute_complexity(self) -> None:
+        X, y = self.data.drop(columns=[self.target]), self.data[self.target]
+        X, y = smart_categorical_encode(X, y)
+        self.complexity = compute_all_complexity_measures(X, y)
+        print(1 + 1)
 
     @function_call_logger
     def save(self, csv=False, parquet=True, metadata=True) -> None:
@@ -210,6 +223,7 @@ class BasePreprocessingPipeline(ABC):
             self.shrink_dtypes()
             self.sort_columns()
             self.reset_index()
+            self.compute_complexity()
             self.update_metadata()
             self.save()
         return self
