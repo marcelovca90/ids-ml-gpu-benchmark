@@ -1,0 +1,9 @@
+# Ubuntu 22.04.5 LTS @ 6.6.87.1-microsoft-standard-WSL2
+#
+# conda create -n rapids-25.04 -c rapidsai -c conda-forge -c nvidia  \
+#     rapids=25.04 python=3.12 'cuda-version>=12.0,<=12.8' jupyterlab
+#
+colorlog
+dtype_diet
+imbalanced-learn
+pytictoc
