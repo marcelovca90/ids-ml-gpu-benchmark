@@ -37,7 +37,7 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         df = pd.read_csv(filename_csv, header=None,
                          names=columns, low_memory=False)
         df.to_parquet(filename_parquet)
-        log_print(f'Converted file \'{filename_csv}\' to parquet.')
+        log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

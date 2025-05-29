@@ -51,7 +51,7 @@ class BoT_IoT_Micro(BasePreprocessingPipeline):
             df = df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr', 'seq',
                                   'ltime', 'attack', 'category', 'subcategory'])
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

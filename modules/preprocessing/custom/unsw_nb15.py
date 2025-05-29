@@ -42,7 +42,7 @@ class UNSW_NB15(BasePreprocessingPipeline):
             df = df.drop(columns=['srcip', 'dstip', 'Label'])
             df = df.rename(columns={'attack_cat': self.target})
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

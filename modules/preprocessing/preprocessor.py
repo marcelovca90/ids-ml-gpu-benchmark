@@ -22,11 +22,11 @@ class BasePreprocessingPipeline(ABC):
         self.name: Union[str, List[str]] = None
         self.target: Union[str, Dict[str, str]] = None
         self.metadata: dict = dict()
+        self.complexity : dict = dict()
         self.seed = 42
         self.binarize = binarize
         self.kind = 'Binary' if self.binarize else 'Multiclass'
         self.multiple = False
-        self.complexity = None
 
     @function_call_logger
     def preload(self) -> None:
@@ -149,6 +149,7 @@ class BasePreprocessingPipeline(ABC):
     def update_metadata(self) -> None:
         tmp_data = {self.name: self.data} if not self.multiple else self.data
         tmp_target = {self.name: self.target} if not self.multiple else self.target
+        tmp_complexity = {self.name: self.complexity} if not self.multiple else self.complexity
         for name, data in tmp_data.items():
             self.metadata[name] = {
                 'multiple': self.multiple,
@@ -159,15 +160,19 @@ class BasePreprocessingPipeline(ABC):
                 'shape': data.shape,
                 'memory_usage': data.memory_usage(deep=True).sum(),
                 'value_counts': data[tmp_target[name]].value_counts().to_dict(),
-                'complexity': self.complexity
+                'complexity': dict()
             }
+            if tmp_complexity[name]:
+                self.metadata[name]['complexity'] = tmp_complexity[name]
 
     @function_call_logger
     def compute_complexity(self) -> None:
-        X, y = self.data.drop(columns=[self.target]), self.data[self.target]
-        X, y = smart_categorical_encode(X, y)
-        self.complexity = compute_all_complexity_measures(X, y)
-        print(1 + 1)
+        tmp_data = {self.name: self.data} if not self.multiple else self.data
+        tmp_target = {self.name: self.target} if not self.multiple else self.target
+        for name, data in tmp_data.items():
+            X, y = data.drop(columns=[tmp_target[name]]), data[tmp_target[name]]
+            X, y = smart_categorical_encode(X, y)
+            self.complexity[name] = compute_all_complexity_measures(X, y)
 
     @function_call_logger
     def save(self, csv=False, parquet=True, metadata=True) -> None:
@@ -211,7 +216,7 @@ class BasePreprocessingPipeline(ABC):
                     json.dump(tmp_metadata[name], fp, default=str, indent=4)
 
     @function_call_logger
-    def pipeline(self, preload=False) -> Self:
+    def pipeline(self, preload=False, complexity=False) -> Self:
         if preload:
             self.preload()
         else:
@@ -223,7 +228,8 @@ class BasePreprocessingPipeline(ABC):
             self.shrink_dtypes()
             self.sort_columns()
             self.reset_index()
-            self.compute_complexity()
+            if complexity:
+                self.compute_complexity()
             self.update_metadata()
             self.save()
         return self

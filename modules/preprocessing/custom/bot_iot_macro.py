@@ -49,7 +49,7 @@ class BoT_IoT_Macro(BasePreprocessingPipeline):
                     (df[self.target] == 'Normal'), 'Benign', 'Malign'
                 )
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

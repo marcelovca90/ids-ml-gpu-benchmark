@@ -43,7 +43,7 @@ class IoT_23(BasePreprocessingPipeline):
                              dtype=str, na_values='', names=col_names)
             df = df.drop(columns=col_drops)
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

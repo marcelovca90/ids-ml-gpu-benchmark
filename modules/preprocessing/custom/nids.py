@@ -53,7 +53,7 @@ class NIDS(BasePreprocessingPipeline):
             parquet_filename = str(csv_filename) \
                 .replace('.csv', f'_{self.kind}.parquet')
             df.to_parquet(parquet_filename)
-            log_print(f'Converted file \'{csv_filename}\' to parquet.')
+            log_print(f'Converted  file \'{csv_filename}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

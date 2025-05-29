@@ -310,7 +310,7 @@ def compute_all_complexity_measures(X_pd: pd.DataFrame, y_pd: pd.Series) -> dict
                 return func(*args, **kwargs)
             except Exception as e:
                 log_print(f"Error in {func.__name__}: {e}")
-                return cp.nan
+                return {}
 
         results = {
             'anova_f': safe_call(compute_anova_f_complexity, X_pd, y_pd),
