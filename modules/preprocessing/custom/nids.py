@@ -77,4 +77,4 @@ class NIDS(BasePreprocessingPipeline):
 
     @function_call_logger
     def save(self) -> None:
-        super().save(csv=False, parquet=False, metadata=True)
+        super().save(csv=False, parquet=True, metadata=True)

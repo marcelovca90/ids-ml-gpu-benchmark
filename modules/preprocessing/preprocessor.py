@@ -8,8 +8,6 @@ from dtype_diet import optimize_dtypes, report_on_dataframe
 from typing_extensions import Dict, List, Self, Union
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.preprocessing.complexity_gpu import (compute_all_complexity_measures,
-                                              smart_categorical_encode)
 from modules.preprocessing.stats import (log_data_types, log_memory_usage,
                                          log_value_counts)
 
@@ -166,13 +164,23 @@ class BasePreprocessingPipeline(ABC):
                 self.metadata[name]['complexity'] = tmp_complexity[name]
 
     @function_call_logger
-    def compute_complexity(self) -> None:
+    def compute_complexity(self, complexity_mode=None) -> None:
         tmp_data = {self.name: self.data} if not self.multiple else self.data
         tmp_target = {self.name: self.target} if not self.multiple else self.target
-        for name, data in tmp_data.items():
-            X, y = data.drop(columns=[tmp_target[name]]), data[tmp_target[name]]
-            X, y = smart_categorical_encode(X, y)
-            self.complexity[name] = compute_all_complexity_measures(X, y)
+        if complexity_mode:
+            if complexity_mode == 'cpu':
+                from modules.preprocessing.complexity_cpu import (
+                    compute_all_complexity_measures, smart_categorical_encode)
+            elif complexity_mode == 'gpu':
+                from modules.preprocessing.complexity_gpu import (
+                    compute_all_complexity_measures, smart_categorical_encode)
+            for name, data in tmp_data.items():
+                X, y = data.drop(columns=[tmp_target[name]]), data[tmp_target[name]]
+                X, y = smart_categorical_encode(X, y)
+                self.complexity[name] = compute_all_complexity_measures(X, y)
+        else:
+            for name, data in tmp_data.items():
+                self.complexity[name] = {}
 
     @function_call_logger
     def save(self, csv=False, parquet=True, metadata=True) -> None:
@@ -200,6 +208,7 @@ class BasePreprocessingPipeline(ABC):
                     os.getcwd(), tmp_folder[name], 'generated',
                     f'{name}{kind_suffix}.parquet'
                 )
+                os.makedirs(Path(parquet_filename).parent, exist_ok=True)
                 log_print(f'Persisting dataset to \'{parquet_filename}\'...')
                 data.to_parquet(path=parquet_filename, index=False)
         # Metadata
@@ -211,12 +220,13 @@ class BasePreprocessingPipeline(ABC):
                     os.getcwd(), tmp_folder[name], 'generated',
                     f'{name}{kind_suffix}.json'
                 )
+                os.makedirs(Path(metadata_filename).parent, exist_ok=True)
                 log_print(f'Persisting metadata to \'{metadata_filename}\'...')
                 with open(metadata_filename, 'w') as fp:
                     json.dump(tmp_metadata[name], fp, default=str, indent=4)
 
     @function_call_logger
-    def pipeline(self, preload=False, complexity=False) -> Self:
+    def pipeline(self, preload=False, complexity_mode=None) -> Self:
         if preload:
             self.preload()
         else:
@@ -228,8 +238,7 @@ class BasePreprocessingPipeline(ABC):
             self.shrink_dtypes()
             self.sort_columns()
             self.reset_index()
-            if complexity:
-                self.compute_complexity()
+            self.compute_complexity(complexity_mode)
             self.update_metadata()
             self.save()
         return self
