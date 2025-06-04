@@ -23,22 +23,23 @@ from modules.preprocessing.custom.nids import NIDS
 from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 from modules.preprocessing.utils import now
 
+# PYTHONPATH=. python main.py
 if __name__ == "__main__":
 
     binarize_flags = [True, False]
 
     dataset_classes = [
-        # BoT_IoT_Micro,
-        # BoT_IoT_Macro,
-        # IoT_23,
-        # IoT_Network_Intrusion_Macro,
-        # IoT_Network_Intrusion_Micro,
-        # KDD_Cup_1999,
-        # MQTT_IoT_IDS2020_PacketFeatures,
-        # MQTT_IoT_IDS2020_UniflowFeatures,
-        # MQTT_IoT_IDS2020_BiflowFeatures,
-        NIDS,
-        # UNSW_NB15
+        BoT_IoT_Micro,
+        BoT_IoT_Macro,
+        IoT_23,
+        IoT_Network_Intrusion_Macro,
+        IoT_Network_Intrusion_Micro,
+        KDD_Cup_1999,
+        MQTT_IoT_IDS2020_PacketFeatures,
+        MQTT_IoT_IDS2020_UniflowFeatures,
+        MQTT_IoT_IDS2020_BiflowFeatures,
+        UNSW_NB15
+        # NIDS is a special case
     ]
 
     # TODO

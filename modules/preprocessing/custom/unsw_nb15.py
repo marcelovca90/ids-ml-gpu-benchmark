@@ -1,3 +1,4 @@
+import chardet
 import os
 import re
 import sys
@@ -26,7 +27,10 @@ class UNSW_NB15(BasePreprocessingPipeline):
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
         filename_cols = os.path.join(work_folder, 'NUSW-NB15_features.csv')
         columns = []
-        with open(filename_cols) as file:
+        with open(filename_cols, 'rb') as file:
+            raw = file.read()
+            enc = chardet.detect(raw)['encoding']
+        with open(filename_cols, encoding=enc) as file:
             for line in file.readlines():
                 if re.match(r'^\d+', line):
                     columns.append(line.split(',')[1])
@@ -70,7 +74,7 @@ class UNSW_NB15(BasePreprocessingPipeline):
         self.data[self.target] = self.data[self.target].fillna('Normal')
         if self.binarize:
             self.data[self.target] = np.where(
-                (self.data[self.target] == 'Benign'), 'Benign', 'Malign'
+                (self.data[self.target] == 'Normal'), 'Benign', 'Malign'
             )
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)

@@ -7,3 +7,4 @@ colorlog
 dtype_diet
 imbalanced-learn
 pytictoc
+chardet

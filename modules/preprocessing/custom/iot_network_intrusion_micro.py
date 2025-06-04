@@ -116,12 +116,12 @@ class IoT_Network_Intrusion_Micro(BasePreprocessingPipeline):
             df = pd.read_csv(os.path.join(work_folder, csv_filename),
                              low_memory=False, on_bad_lines="skip")
             df['label'] = f"{category}_{subcategory}"
-            df = df.drop(columns=['_ws.col.cls_time'])
+            df = df.drop(columns=['_ws.col.Time', '_ws.col.cls_time'], errors='ignore')
             df_list.append(df)
         ans = pd.concat(df_list).infer_objects()
         if self.binarize:
             ans['label'] = np.where(
-                (ans['label'] == 'Normal'), 'Benign', 'Malign'
+                (ans['label'] == 'Normal_Normal'), 'Benign', 'Malign'
             )
         return ans
 

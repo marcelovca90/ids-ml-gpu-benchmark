@@ -69,6 +69,7 @@ class NIDS(BasePreprocessingPipeline):
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
 
+# PYTHONPATH=. python modules/preprocessing/custom/nids.py
 if __name__ == "__main__":
 
     csv_filenames_data = [

@@ -59,6 +59,16 @@ class BasePreprocessingPipeline(ABC):
         log_value_counts(self.data, self.target)
 
     @function_call_logger
+    def round(self, decimals=3) -> None:
+        log_print(f"Number of unique values per column before rounding to {decimals} decimal places:")
+        for col in self.data.columns:
+            log_print(f"{col}\t{self.data[col].nunique()}")
+        self.data = self.data.round(decimals=decimals)
+        log_print(f"Number of unique values per column after rounding to {decimals} decimal places:")
+        for col in self.data.columns:
+            log_print(f"{col}\t{self.data[col].nunique()}")
+
+    @function_call_logger
     def set_dtypes(self) -> None:
         log_print("Data types and memory usage before conversion:")
         log_data_types(self.data)
@@ -172,6 +182,7 @@ class BasePreprocessingPipeline(ABC):
             self.load()
             self.sanitize()
             self.set_dtypes()
+            self.round()
             self.remove_na_duplicates()
             self.shrink_dtypes()
             self.sort_columns()
