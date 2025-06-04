@@ -28,18 +28,32 @@ if __name__ == "__main__":
     binarize_flags = [True, False]
 
     dataset_classes = [
-        BoT_IoT_Micro,
-        BoT_IoT_Macro,
-        IoT_23,
-        IoT_Network_Intrusion_Macro,
-        IoT_Network_Intrusion_Micro,
-        KDD_Cup_1999,
-        MQTT_IoT_IDS2020_PacketFeatures,
-        MQTT_IoT_IDS2020_UniflowFeatures,
-        MQTT_IoT_IDS2020_BiflowFeatures,
+        # BoT_IoT_Micro,
+        # BoT_IoT_Macro,
+        # IoT_23,
+        # IoT_Network_Intrusion_Macro,
+        # IoT_Network_Intrusion_Micro,
+        # KDD_Cup_1999,
+        # MQTT_IoT_IDS2020_PacketFeatures,
+        # MQTT_IoT_IDS2020_UniflowFeatures,
+        # MQTT_IoT_IDS2020_BiflowFeatures,
         NIDS,
-        UNSW_NB15
+        # UNSW_NB15
     ]
+
+    # TODO
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:21  CIC-BCCC-NRC-TabularIoTAttacks-2024/ # ok (multiple)
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:20  CICIoMT2024/
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:19  CICEVSE2024/
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:18  CICAPT-IIoT/                         # MAYBE (pcap 2 phases ???)
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:17  CIC-IDS-2017/
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:16  CICIoV2024/                          # Micro, Macro @ Binary, Multiclass
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:15  CICDataset_Organized/                # NOPE
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:14  CICDDoS2019/
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:11  EDGE-IIOTSET/
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:09  N_BaIoT/                             # OK (multiple)
+    # drwxr-xr-x 1 marce 197609 0 May 28 02:02  CIC_IOT_Dataset2023/
+    # drwxr-xr-x 1 marce 197609 0 Dec  2  2022  TON_IoT-Dataset/
 
     for binarize_flag in tqdm(binarize_flags, desc='Binarize', leave=False):
 
