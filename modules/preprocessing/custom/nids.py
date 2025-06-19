@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
+from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 from tqdm import tqdm
@@ -43,8 +44,9 @@ class NIDS(BasePreprocessingPipeline):
             df[self.target] = df['Attack']
 
         df = df.drop(columns=[
-            'Flow ID', 'Src IP', 'Dst IP', 'FLOW_START_MILLISECONDS', 'FLOW_END_MILLISECONDS',
-            'IPV4_SRC_ADDR', 'IPV4_DST_ADDR', 'Timestamp', 'Attack', 'Label', 'Dataset'
+            'Flow ID', 'Src IP', 'Dst IP', 'Timestamp', 'Attack', 'Label', 'Dataset',
+            'IPV4_SRC_ADDR', 'IPV4_DST_ADDR', 'FLOW_START_MILLISECONDS', 'FLOW_END_MILLISECONDS',
+            'DNS_QUERY_ID', 'DNS_QUERY_TYPE', 'DNS_TTL_ANSWER'
         ], errors='ignore')
 
         self.data = df
@@ -72,6 +74,8 @@ class NIDS(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/nids.py
 if __name__ == "__main__":
 
+    binarize_flags = [False, True]
+
     csv_filenames_data = [
         Path('datasets/NIDS/source/CIC-BoT-IoT/a27809afa6caa7e0_MOHANAD_A4706/data/CIC-BoT-IoT.csv'),
         Path('datasets/NIDS/source/CIC-ToN-IoT/a40a412453292fe6_MOHANAD_A4706/data/CIC-ToN-IoT.csv'),
@@ -86,25 +90,30 @@ if __name__ == "__main__":
         Path('datasets/NIDS/source/NF-ToN-IoT/7ca78ae35fa4961a_MOHANAD_A4706/data/NF-ToN-IoT.csv'),
         Path('datasets/NIDS/source/NF-UNSW-NB15-v2/fe6cb615d161452c_MOHANAD_A4706/data/NF-UNSW-NB15-v2.csv'),
         Path('datasets/NIDS/source/NF-UNSW-NB15-v3/f7546561558c07c5_NFV3DATA-A11964_A11964/data/NF-UNSW-NB15-v3.csv'),
-        Path('datasets/NIDS/source/NF-UQ-NIDS-v2/9810e03bba4983da_MOHANAD_A4706/data/NF-UQ-NIDS-v2.csv'),
+        # Path('datasets/NIDS/source/NF-UQ-NIDS-v2/9810e03bba4983da_MOHANAD_A4706/data/NF-UQ-NIDS-v2.csv'),
         Path('datasets/NIDS/source/NF-UQ-NIDS/e3bd3035f88e55fa_MOHANAD_A4706/data/NF-UQ-NIDS.csv'),
         Path('datasets/NIDS/source/NF-USNW-NB15/88695f0f620eb568_MOHANAD_A4706/data/NF-UNSW-NB15.csv')
     ]
 
-    for binarize in tqdm([True, False], desc="Binarize", leave=False):
+    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
 
-        for csv_filename in tqdm(csv_filenames_data, desc="NIDS_CSV", leave=False):
+        for j, csv_filename in enumerate(tqdm(csv_filenames_data, desc="NIDS_CSV", leave=False)):
 
             try:
 
-                log_print(f'[NIDS] Creating custom pipeline: {binarize} => {csv_filename}')
+                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(csv_filenames_data):02}]"
 
-                nids = NIDS(csv_filename=csv_filename, binarize=binarize)
+                log_print(f'{msg_prefix} Started processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
+                post_disc(f'{msg_prefix} Started processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
 
-                nids.pipeline(preload=False, complexity_mode=None)
+                nids = NIDS(csv_filename=csv_filename, binarize=binarize_flag)
 
-                log_print(f'[NIDS] Finished custom pipeline: {binarize} => {csv_filename}\n\n')
+                nids.pipeline(preload=False, shrink_mode=None, complexity_mode=None, profile_mode='minimal')
+
+                log_print(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
+                post_disc(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
 
             except Exception as e:
 
-                log_print(f'[NIDS] Error: {str(e)}')
+                log_print(f'{msg_prefix} Error processing NIDS/{csv_filename.stem} (binarize={binarize_flag}): {str(e)}')
+                post_disc(f'{msg_prefix} Error processing NIDS/{csv_filename.stem} (binarize={binarize_flag}): {str(e)}')

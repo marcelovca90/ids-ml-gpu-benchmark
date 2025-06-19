@@ -8,3 +8,6 @@ dtype_diet
 imbalanced-learn
 pytictoc
 chardet
+type_infer
+ydata-profiling
+discord-webhook

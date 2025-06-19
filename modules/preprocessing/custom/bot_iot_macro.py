@@ -8,8 +8,7 @@ import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
-from modules.preprocessing.stats import log_value_counts
-from modules.preprocessing.utils import _convert_to_int, _replace_values
+from modules.preprocessing.utils import _convert_to_int
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 

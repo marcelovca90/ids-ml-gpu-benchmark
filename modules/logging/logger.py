@@ -33,4 +33,4 @@ def log_print(message, calling_function=None):
     if not calling_function:
         calling_function = inspect.stack()[1].function
     logger.info(
-        f'{Fore.RED}[ {calling_function:<32} ]{Style.RESET_ALL} {message}')
+        f'{Fore.RED}[ {calling_function} ]{Style.RESET_ALL} {message}')
