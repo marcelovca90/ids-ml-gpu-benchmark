@@ -100,7 +100,7 @@ class ToN_IoT(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py
 if __name__ == "__main__":
 
-    binarize_flags = [False, True]
+    binarize_flags = [False]
 
     configs = {
         'IoT_Fridge': {
@@ -220,7 +220,7 @@ if __name__ == "__main__":
 
                 ton_iot = ToN_IoT(sub_name=name, sub_config=config, binarize=binarize_flag)
 
-                ton_iot.pipeline(preload=False, shrink_mode=None, complexity_mode=None, profile_mode='minimal')
+                ton_iot.pipeline()
 
                 assert 'label' in ton_iot.data.columns
                 assert str(ton_iot.data['label'].dtype) == 'category'

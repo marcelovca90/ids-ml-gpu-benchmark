@@ -73,7 +73,7 @@ class EDGE_IIOTSET(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/nbaiot.py
 if __name__ == "__main__":
 
-    binarize_flags = [False, True]
+    binarize_flags = [False]
 
     csv_filenames = [
         "ML-EdgeIIoT-dataset.csv",
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
                 edge_iiotset = EDGE_IIOTSET(csv_filename=csv_filename, binarize=binarize_flag)
 
-                edge_iiotset.pipeline(preload=False, shrink_mode=None, complexity_mode=None, profile_mode='minimal')
+                edge_iiotset.pipeline()
 
                 log_print(f'{msg_prefix} Finished processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')
                 post_disc(f'{msg_prefix} Finished processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')

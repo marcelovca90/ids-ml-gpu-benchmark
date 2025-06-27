@@ -74,7 +74,7 @@ class NIDS(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/nids.py
 if __name__ == "__main__":
 
-    binarize_flags = [False, True]
+    binarize_flags = [False]
 
     csv_filenames_data = [
         Path('datasets/NIDS/source/CIC-BoT-IoT/a27809afa6caa7e0_MOHANAD_A4706/data/CIC-BoT-IoT.csv'),
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         Path('datasets/NIDS/source/NF-ToN-IoT/7ca78ae35fa4961a_MOHANAD_A4706/data/NF-ToN-IoT.csv'),
         Path('datasets/NIDS/source/NF-UNSW-NB15-v2/fe6cb615d161452c_MOHANAD_A4706/data/NF-UNSW-NB15-v2.csv'),
         Path('datasets/NIDS/source/NF-UNSW-NB15-v3/f7546561558c07c5_NFV3DATA-A11964_A11964/data/NF-UNSW-NB15-v3.csv'),
-        # Path('datasets/NIDS/source/NF-UQ-NIDS-v2/9810e03bba4983da_MOHANAD_A4706/data/NF-UQ-NIDS-v2.csv'),
+        Path('datasets/NIDS/source/NF-UQ-NIDS-v2/9810e03bba4983da_MOHANAD_A4706/data/NF-UQ-NIDS-v2.csv'),
         Path('datasets/NIDS/source/NF-UQ-NIDS/e3bd3035f88e55fa_MOHANAD_A4706/data/NF-UQ-NIDS.csv'),
         Path('datasets/NIDS/source/NF-USNW-NB15/88695f0f620eb568_MOHANAD_A4706/data/NF-UNSW-NB15.csv')
     ]
@@ -108,7 +108,7 @@ if __name__ == "__main__":
 
                 nids = NIDS(csv_filename=csv_filename, binarize=binarize_flag)
 
-                nids.pipeline(preload=False, shrink_mode=None, complexity_mode=None, profile_mode='minimal')
+                nids.pipeline()
 
                 log_print(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
                 post_disc(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')

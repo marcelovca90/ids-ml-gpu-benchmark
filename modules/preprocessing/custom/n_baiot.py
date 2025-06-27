@@ -60,7 +60,7 @@ class N_BaIoT(BasePreprocessingPipeline):
 
         parquet_filename = os.path.join(subfolder_path, f'Merged_{self.kind}.parquet')
         self.data.to_parquet(parquet_filename)
-        log_print(f'Processed  subfolder \'{subfolder}\' and saving to parquet.')
+        log_print(f'Processed  subfolder \'{self.subfolder}\' and saving to parquet.')
 
     @function_call_logger
     def load(self) -> None:
@@ -82,7 +82,7 @@ class N_BaIoT(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/n_baiot.py
 if __name__ == "__main__":
 
-    binarize_flags = [False, True]
+    binarize_flags = [False]
 
     subfolders = [
         "Danmini_Doorbell",
@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
                 nbaiot = N_BaIoT(subfolder=subfolder, binarize=binarize_flag)
 
-                nbaiot.pipeline(preload=False, shrink_mode=None, complexity_mode=None, profile_mode='minimal')
+                nbaiot.pipeline()
 
                 log_print(f'{msg_prefix} Finished processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
                 post_disc(f'{msg_prefix} Finished processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
