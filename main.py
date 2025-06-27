@@ -7,8 +7,13 @@ from tqdm import tqdm
 
 from modules.logging.logger import log_print
 from modules.logging.webhook import post_disc
+from modules.preprocessing.custom.CICEVSE2024 import CICEVSE2024
+from modules.preprocessing.custom.CICIoV2024 import CICIoV2024
 from modules.preprocessing.custom.bot_iot_macro import BoT_IoT_Macro
 from modules.preprocessing.custom.bot_iot_micro import BoT_IoT_Micro
+from modules.preprocessing.custom.cic_ids_2017 import CIC_IDS_2017
+from modules.preprocessing.custom.cic_iot_dataset2023 import \
+    CIC_IOT_Dataset2023
 from modules.preprocessing.custom.iot_23 import IoT_23
 from modules.preprocessing.custom.iot_network_intrusion_macro import \
     IoT_Network_Intrusion_Macro
@@ -32,7 +37,7 @@ from modules.preprocessing.utils import now
 # PYTHONPATH=. python main.py
 if __name__ == "__main__":
 
-    binarize_flags = [False, True]
+    binarize_flags = [False]
 
     dataset_classes = [
         # BoT_IoT_Micro,
@@ -45,14 +50,20 @@ if __name__ == "__main__":
         # MQTT_IoT_IDS2020_UniflowFeatures,
         # MQTT_IoT_IDS2020_BiflowFeatures,
         # UNSW_NB15,
-        CICIoMT2024_Bluetooth,
-        CICIoMT2024_WiFi_and_MQTT
-        # # BCCC is a special case
-        # # NIDS is a special case
-        # # N_BaIoT is a special case
-        # # EDGE_IIOTSET is a special case
+        # CICIoMT2024_Bluetooth,
+        # CICIoMT2024_WiFi_and_MQTT,
+        CIC_IOT_Dataset2023,
+        # CIC_IDS_2017,
     ]
-
+    
+    # independent datasets (must be run separately):
+    # BCCC 
+    # CICEVSE2024
+    # CICIoV2024
+    # EDGE_IIOTSET
+    # N_BaIoT
+    # NIDS
+    # ToN_IoT
     
     # DONE CIC-BCCC-NRC-TabularIoTAttacks-2024/  # ok CIC-BCCC-NRC-ACI-IOT-2023
     #                                            # ok CIC-BCCC-NRC-Edge-IIoTSet-2022
@@ -66,14 +77,14 @@ if __name__ == "__main__":
     #
     # DONE CICIoMT2024                           # ok (Bluetooth e WiFI_and_MQTT)
     # 
-    # TODO CICEVSE2024/                          # ok EVSE-A
+    # DONE CICEVSE2024/                          # ok EVSE-A
     #                                            # nok EVSE-B (sem benign)
     #
-    # TODO CICAPT-IIoT/                          # verificar (2 fases)
+    # DONE CICAPT-IIoT/                          # verificar (2 fases)
     # 
-    # TODO CIC-IDS-2017/                         # ok (MachineLearningCSV)
+    # DONE CIC-IDS-2017/                         # ok (MachineLearningCSV)
     # 
-    # TODO CICIoV2024/                           # ok (Micro/Macro @ Binary/Decimal/Hexadecimal)
+    # DONE CICIoV2024/                           # ok (Micro/Macro @ Binary/Decimal/Hexadecimal)
     # 
     # DONE CICDataset_Organized/                 # nok (bagunca)
     # 
@@ -83,9 +94,9 @@ if __name__ == "__main__":
     # 
     # DONE N_BaIoT/                              # ok (9 dispositivos)
     # 
-    # TODO CIC_IOT_Dataset2023/                  # ok
+    # DONE CIC_IOT_Dataset2023/                  # ok
     # 
-    # TODO TON_IoT-Dataset/                      # ok (7 iot, 3 linux, 1 network)
+    # DONE TON_IoT-Dataset/                      # ok (7 iot, 3 linux, 1 network)
 
     for i, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
 
@@ -107,20 +118,3 @@ if __name__ == "__main__":
 
                 log_print(f'{msg_prefix} Error processing {dataset_cls.__name__} (binarize={binarize_flag}): {str(e)}')
                 post_disc(f'{msg_prefix} Error processing {dataset_cls.__name__} (binarize={binarize_flag}): {str(e)}')
-
-    # moved_files = {}
-    # candidate_files = list(Path("datasets").rglob("*"))
-    # for i, src_path in enumerate(tqdm(candidate_files, desc='Candidate', leave=False)):
-    #     for j, kind in enumerate(tqdm(['Binary', 'Multiclass'], desc='Kind', leave=False)):
-    #         msg_prefix = f"[{i+1:02}/{len(candidate_files):02}] [{j+1:02}/{len(binarize_flags):02}]"
-    #         if (src_path.is_file() and str(kind) in src_path.name and
-    #             ('generated' in str(src_path.absolute().resolve())) and
-    #             (src_path.name.lower().endswith(('.parquet', '.json', '.html')))):
-    #             dst_path = Path(os.path.join('2025-06-13', kind, src_path.name))
-    #             if dst_path.is_file() and dst_path.exists():
-    #                 dst_path.unlink()
-    #             tqdm.write(f"{msg_prefix} Moving {src_path} to {dst_path}...")
-    #             os.makedirs(Path(dst_path).parent, exist_ok=True)
-    #             shutil.move(src_path, dst_path)
-    #             moved_files[str(src_path)] = str(dst_path)
-    # post_disc(f"The following files were moved:\n```json\n{pformat(moved_files, indent=2)}```")
