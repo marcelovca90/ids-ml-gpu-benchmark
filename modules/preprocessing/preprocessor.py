@@ -425,7 +425,7 @@ class BasePreprocessingPipeline(ABC):
                 from modules.preprocessing.complexity_cpu import (
                     compute_all_complexity_measures, smart_categorical_encode)
             elif complexity_mode == 'gpu':
-                from modules.preprocessing.complexity_gpu_v1 import (
+                from modules.preprocessing.complexity_gpu import (
                     compute_all_complexity_measures, smart_categorical_encode)
             X, y = self.data.drop(columns=[self.target]), self.data[self.target]
             X, y = smart_categorical_encode(X, y)
