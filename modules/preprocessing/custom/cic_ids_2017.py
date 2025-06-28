@@ -58,4 +58,3 @@ class CIC_IDS_2017(BasePreprocessingPipeline):
             data_frames.append(pd.read_parquet(full_filename))
             log_print(f'Loaded parquet file \'{base_filename}\'.')
         self.data = pd.concat(data_frames, copy=False)
-        pass

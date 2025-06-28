@@ -70,7 +70,7 @@ class EDGE_IIOTSET(BasePreprocessingPipeline):
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
 
-# PYTHONPATH=. python modules/preprocessing/custom/nbaiot.py
+# PYTHONPATH=. python modules/preprocessing/custom/edge_iiotset.py
 if __name__ == "__main__":
 
     binarize_flags = [False]

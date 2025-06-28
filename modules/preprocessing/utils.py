@@ -1,6 +1,7 @@
 import json
 import numbers
 import os
+import re
 import sys
 from collections import OrderedDict
 from datetime import datetime
@@ -502,3 +503,39 @@ def _elbow_method(data):
 
     plt.tight_layout()
     plt.show()
+
+
+def _convert_kmg_to_float(val):
+    if isinstance(val, str):
+        val = val.strip()
+        # Match e.g. 1.5K, 2M, 3.2G (case-insensitive)
+        match = re.match(r'^([\d\.]+)\s*([KMG])$', val, re.IGNORECASE)
+        if match:
+            number, suffix = match.groups()
+            factor = {'K': 1e3, 'M': 1e6, 'G': 1e9}
+            try:
+                return str(float(number) * factor[suffix.upper()])
+            except ValueError:
+                return val  # malformed number part
+        try:
+            return str(float(val))  # try pure number (e.g., "4", "9000")
+        except ValueError:
+            return val  # leave untouched if not numeric
+    return val  # already numeric or NaN
+
+
+def _clean_and_expand_kmg_suffix(val):
+    if isinstance(val, str):
+        val = re.sub(r'\s', '', val.strip().upper())
+        if val.endswith('%'):
+            try:
+                return str(float(val[:-1]) / 100)
+            except ValueError:
+                return val  # fallback if not a valid float
+        elif val.endswith('K'):
+            return val[:-1] + '000'
+        elif val.endswith('M'):
+            return val[:-1] + '000000'
+        elif val.endswith('G'):
+            return val[:-1] + '000000000'
+    return str(val)  # ensure return is string

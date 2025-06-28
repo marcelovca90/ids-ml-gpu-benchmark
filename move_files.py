@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     src_folder = "datasets"
 
-    dst_folder = "2025-06-26-b"
+    dst_folder = "2025-06-28"
 
     dataset_kinds = ["Binary", "Multiclass"]
 

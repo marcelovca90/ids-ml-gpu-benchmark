@@ -108,24 +108,22 @@ def inspect_labels():
         for kind in tqdm(['Binary', 'Multiclass'], desc='Kind', leave=False):
 
             try:
-                if src_path.is_file() and kind in src_path.name:
-                    if src_path.is_file() and src_path.exists():
-
-                        with open(src_path, 'rb') as file:
-                            raw = file.read()
-                            enc = chardet.detect(raw)['encoding']
-                        with open(src_path, encoding=enc) as file:
-                            data = json.load(file)
-                        size = Path(str(src_path).replace('.json', '.parquet')).stat().st_size / 1024 / 1024
-                        vc_len = len(data['value_counts'])
-                        vc_sum = np.sum(list(data['value_counts'].values()))
-                        vc_uniques = list(data['value_counts'].keys())
-                        status = ('Binary' in str(src_path) and vc_len == 2) or ('Multiclass' in str(src_path) and vc_len > 2)
-                        results_dict.append({
-                            'kind': kind, 'path': str(src_path.stem), 'size': f'{size:.2f} MB',
-                            'status': 'OK' if status else 'ERROR', 'samples': f'{vc_sum:,}',
-                            'classes': vc_len, 'uniques': ", ".join(vc_uniques)
-                        })
+                if src_path.is_file() and src_path.exists() and kind in src_path.name:
+                    with open(src_path, 'rb') as file:
+                        raw = file.read()
+                        enc = chardet.detect(raw)['encoding']
+                    with open(src_path, encoding=enc) as file:
+                        data = json.load(file)
+                    size = Path(str(src_path).replace('.json', '.parquet')).stat().st_size / 1024 / 1024
+                    vc_len = len(data['value_counts'])
+                    vc_sum = np.sum(list(data['value_counts'].values()))
+                    vc_uniques = list(data['value_counts'].keys())
+                    status = ('Binary' in str(src_path) and vc_len == 2) or ('Multiclass' in str(src_path) and vc_len > 2)
+                    results_dict.append({
+                        'kind': kind, 'path': str(src_path.stem), 'size': f'{size:.2f} MB',
+                        'status': 'OK' if status else 'ERROR', 'samples': f'{vc_sum:,}',
+                        'classes': vc_len, 'uniques': ", ".join(vc_uniques)
+                    })
 
             except Exception as e:
                 tqdm.write(f"[{now()}] Error in {src_path}: {e}")

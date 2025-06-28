@@ -1,7 +1,6 @@
 import gc
 import json
 import os
-import shutil
 import sys
 import warnings
 from datetime import datetime
@@ -11,13 +10,12 @@ import cudf
 import cupy as cp
 import numpy as np
 import pandas as pd
-from cuml.common.device_selection import using_device_type
 from cuml.decomposition import PCA
 from cuml.metrics.cluster import silhouette_score
 from cuml.neighbors import KNeighborsClassifier, NearestNeighbors
 from cuml.svm import LinearSVC
 from sklearn.feature_selection import f_classif, mutual_info_classif
-from pprint import pformat
+from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 
 sys.path.append(Path(__file__).absolute().parent.parent)
@@ -84,6 +82,53 @@ def get_stats(values: cp.ndarray) -> dict:
         "stdev": float(cp.std(values)),
         "variance": float(cp.var(values))
     }
+
+def stratified_sample_with_min(df, stratify_col, max_total_samples, min_samples_per_class):
+    # Step 0: Handle case where dataset is smaller than max_total_samples
+    if len(df) <= max_total_samples:
+        # Ensure minimum samples per class via oversampling
+        class_counts = df[stratify_col].value_counts()
+        oversampled = [
+            df[df[stratify_col] == cls].sample(n=min_samples_per_class, replace=True)
+            for cls in class_counts[class_counts < min_samples_per_class].index
+        ]
+        df_balanced = pd.concat([df] + oversampled, ignore_index=True) if oversampled else df
+        return df_balanced.reset_index(drop=True)
+
+    # Step 1: Ensure minimum samples per class (oversample if needed)
+    class_counts = df[stratify_col].value_counts()
+    oversampled = [
+        df[df[stratify_col] == cls].sample(n=min_samples_per_class, replace=True)
+        for cls in class_counts[class_counts < min_samples_per_class].index
+    ]
+    df_balanced = pd.concat([df] + oversampled, ignore_index=True) if oversampled else df
+
+    # Step 2: Recompute class proportions
+    class_proportions = df_balanced[stratify_col].value_counts(normalize=True)
+
+    # Step 3: Compute how many samples to draw per class
+    class_sample_counts = (class_proportions * max_total_samples).round().astype(int)
+
+    # Step 4: Enforce min_samples_per_class
+    class_sample_counts[class_sample_counts < min_samples_per_class] = min_samples_per_class
+
+    # Step 5: Re-normalize if total exceeds max_total_samples
+    total = class_sample_counts.sum()
+    if total > max_total_samples:
+        scaling_factor = max_total_samples / total
+        class_sample_counts = (class_sample_counts * scaling_factor).round().astype(int)
+        class_sample_counts[class_sample_counts < min_samples_per_class] = min_samples_per_class
+
+    # Final sampling
+    sampled_df = pd.concat([
+        df_balanced[df_balanced[stratify_col] == cls].sample(
+            n=min(count, len(df_balanced[df_balanced[stratify_col] == cls])),
+            replace=False
+        )
+        for cls, count in class_sample_counts.items()
+    ], ignore_index=True)
+
+    return sampled_df.reset_index(drop=True)
 
 # 1a. Feature relevance (ANOVA F-statistic)
 def compute_anova_f_complexity(X: pd.DataFrame, y: pd.Series) -> dict:
@@ -198,35 +243,28 @@ def compute_nearest_enemy_complexity(X: cudf.DataFrame, y: cudf.Series, k: int =
 def compute_margin_complexity(X: cudf.DataFrame, y: cudf.Series) -> dict:
     tqdm.write(f"[{now()}] Computing margin complexity (GPU)...")
 
-    # Use cuML's LinearSVC for GPU acceleration
+    # Convert to CuPy arrays
+    X_array = X.to_cupy()
+    y_array = y.to_cupy()
+
     clf = LinearSVC(
-        C=1.0,                    # Regularization parameter
-        max_iter=20000,           # Maximum iterations
-        tol=1e-4,                 # Tolerance for stopping criterion
-        fit_intercept=True,       # Whether to fit intercept
-        verbose=False             # Suppress output
+        C=1.0,
+        max_iter=20000,
+        tol=1e-4,
+        fit_intercept=True,
+        verbose=False
     )
 
-    clf.fit(X, y)
+    clf.fit(X_array, y_array)
 
-    # Decision function returns signed distance to hyperplane
-    decision_function = clf.decision_function(X)
+    # Get distances to hyperplane
+    decision_function = clf.decision_function(X_array)
 
-    # Handle multi-class case (decision_function returns multiple columns)
-    if hasattr(decision_function, 'shape') and len(decision_function.shape) > 1 and decision_function.shape[1] > 1:
-        # For multi-class, take minimum absolute distance across all decision boundaries
-        if hasattr(decision_function, 'values'):
-            decision_values = decision_function.values
-        else:
-            decision_values = cp.asarray(decision_function)
-        margins = cp.min(cp.abs(decision_values), axis=1)
+    # Handle multiclass and binary
+    if decision_function.ndim > 1 and decision_function.shape[1] > 1:
+        margins = cp.min(cp.abs(decision_function), axis=1)
     else:
-        # Binary classification case
-        if hasattr(decision_function, 'values'):
-            decision_values = decision_function.values
-        else:
-            decision_values = cp.asarray(decision_function)
-        margins = cp.abs(decision_values)
+        margins = cp.abs(decision_function)
 
     return get_stats(margins)
 
@@ -355,112 +393,238 @@ def compute_clusterability(X: cudf.DataFrame, y: cudf.Series) -> dict:
 # Master function to compute all complexity measures
 def compute_all_complexity_measures(X_pd: pd.DataFrame, y_pd: pd.Series) -> dict:
     # Enable GPU acceleration for cuDF and cuML
-    with using_device_type('gpu'):
-        # Convert inputs to cuDF for GPU processing
-        X_cu = cudf.DataFrame.from_pandas(X_pd) if isinstance(X_pd, pd.DataFrame) else X_pd
-        y_cu = cudf.Series.from_pandas(y_pd) if isinstance(y_pd, pd.Series) else y_pd
-        X_cu, y_cu = smart_categorical_encode(X_cu, y_cu)
+    # Convert inputs to cuDF for GPU processing
+    X_cu = cudf.DataFrame.from_pandas(X_pd) if isinstance(X_pd, pd.DataFrame) else X_pd
+    y_cu = cudf.Series.from_pandas(y_pd) if isinstance(y_pd, pd.Series) else y_pd
+    # X_cu, y_cu = smart_categorical_encode(X_cu, y_cu)
 
-        def safe_call(func, *args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                tqdm.write(f"Error in {func.__name__}: {e}")
-                return {}
+    def safe_call(func, *args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            tqdm.write(f"Error in {func.__name__}: {e}")
+            return {}
 
-        results = {
-            'anova_f': safe_call(compute_anova_f_complexity, X_pd, y_pd),
-            'mutual_info': safe_call(compute_mutual_info_complexity, X_pd, y_pd),
-            'kdn': safe_call(compute_kdn_complexity, X_cu, y_cu),
-            'nearest_enemy': {}, # safe_call(compute_nearest_enemy_complexity, X_cu, y_cu),
-            'margin': safe_call(compute_margin_complexity, X_cu, y_cu),
-            'intrinsic_dimensionality': safe_call(compute_intrinsic_dimensionality, X_cu),
-            'class_imbalance': safe_call(compute_class_imbalance, y_cu),
-            'knn_overlap': safe_call(compute_knn_overlap, X_cu, y_cu),
-            'centroid_distance': safe_call(compute_class_centroid_distance, X_cu, y_cu),
-            'clusterability': safe_call(compute_clusterability, X_cu, y_cu),
-        }
+    results = {
+        'anova_f': safe_call(compute_anova_f_complexity, X_pd, y_pd),
+        'mutual_info': safe_call(compute_mutual_info_complexity, X_pd, y_pd),
+        'kdn': safe_call(compute_kdn_complexity, X_cu, y_cu),
+        'nearest_enemy': safe_call(compute_nearest_enemy_complexity, X_cu, y_cu),
+        'margin': safe_call(compute_margin_complexity, X_cu, y_cu),
+        'intrinsic_dimensionality': safe_call(compute_intrinsic_dimensionality, X_cu),
+        'class_imbalance': safe_call(compute_class_imbalance, y_cu),
+        'knn_overlap': safe_call(compute_knn_overlap, X_cu, y_cu),
+        'centroid_distance': safe_call(compute_class_centroid_distance, X_cu, y_cu),
+        'clusterability': safe_call(compute_clusterability, X_cu, y_cu),
+    }
 
-        return results
+    return results
 
+def flatten_metrics_dict(metrics_dict: dict) -> pd.DataFrame:
+    flat_dict = {}
+    for top_key, subdict in metrics_dict.items():
+        if isinstance(subdict, dict):
+            for sub_key, value in subdict.items():
+                flat_key = f"{top_key}_{sub_key}"
+                flat_dict[flat_key] = value
+        else:
+            flat_dict[top_key] = subdict  # in case it's not nested
+    return pd.DataFrame([flat_dict])
+
+def compute_composite_difficulty_from_dict(metrics_dict: dict) -> pd.DataFrame:
+
+    # Corrected metric groups
+    metric_groups = {
+        "Feature_Relevance": ["anova_f_mean", "mutual_info_mean"],
+        "Local_Overlap": ["kdn_mean", "knn_overlap_knn_overlap_fraction"],
+        "Boundary_Hardness": ["margin_mean", "nearest_enemy_mean"],
+        "Global_Structure": ["intrinsic_dimensionality_intrinsic_dimensionality_percent", "clusterability_silhouette_score"],
+        "Class_Distribution_Separation": ["centroid_distance_class_centroid_mean_distance", "class_imbalance_normalized_entropy"]
+    }
+
+    # Corrected flip list
+    metrics_to_invert = [
+        "anova_f_mean",
+        "mutual_info_mean",
+        "margin_mean",
+        "nearest_enemy_mean",
+        "clusterability_silhouette_score",
+        "class_imbalance_normalized_entropy"
+    ]
+
+    df = flatten_metrics_dict(metrics_dict)
+
+    # Step 1: Flip necessary metrics
+    for metric in metrics_to_invert:
+        if metric in df.columns:
+            df[metric] = -df[metric]
+
+    # Step 2: Normalize
+    scaler = MinMaxScaler()
+    flatten_metrics = [
+        metric                                 # Final flattened metric name (e.g., "anova_f_mean")
+        for metrics in metric_groups.values()   # Each metric list from each group
+        for metric in metrics                   # Each metric name in that list
+        if metric in df.columns                 # Only include if it exists in the current DataFrame
+    ]
+    df[flatten_metrics] = scaler.fit_transform(df[flatten_metrics])
+
+    # Step 3: Group difficulty
+    for group_name, metric_list in metric_groups.items():
+        available_metrics = [m for m in metric_list if m in df.columns]
+        if available_metrics:
+            df[group_name + "_difficulty"] = df[available_metrics].mean(axis=1)
+        else:
+            df[group_name + "_difficulty"] = np.nan
+
+    # Step 4: Overall difficulty
+    group_difficulty_cols = [g + "_difficulty" for g in metric_groups.keys()]
+    df["overall_difficulty"] = df[group_difficulty_cols].mean(axis=1)
+
+    return df
+
+# PYTHONPATH=. python modules/preprocessing/complexity_gpu_v2.py
 if __name__ == "__main__":
 
-    df_dummy = pd.DataFrame(
-        np.random.randn(1000, 25),
-        columns=[f"feature_{i}" for i in range(1, 26)]
-    )
-    df_dummy["label"] = np.random.choice([0, 1], size=1000)
-    df_dummy.to_parquet("ready/Binary/Dummy_Binary.parquet", index=False)
-
-    df_dummy = pd.DataFrame(
-        np.random.randn(1000, 50),
-        columns=[f"feature_{i}" for i in range(1, 51)]
-    )
-    df_dummy["label"] = np.random.choice([0, 1, 2], size=1000)
-    df_dummy.to_parquet("ready/Multiclass/Dummy_Multiclass.parquet", index=False)
-
-    candidate_files = list(Path("datasets").rglob("*"))
-    for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
-        for kind in tqdm(['Binary', 'Multiclass'], desc='Kind', leave=False):
-            if (src_path.is_file() and kind in src_path.name and
-                ('generated' in str(src_path.absolute().resolve())) and
-                ('.parquet' in src_path.name or '.json' in src_path.name)):
-                dst_path = Path(os.path.join('ready', kind, src_path.name))
-                if dst_path.is_file() and dst_path.exists():
-                    dst_path.unlink()
-                tqdm.write(f"[{now()}] Moving {src_path} to {dst_path}...")
-                os.makedirs(Path(dst_path).parent, exist_ok=True)
-                shutil.move(src_path, dst_path)
-
-    def stratified_sample_fraction(df, strata_col, fraction=0.1):
-        return df.groupby(strata_col, group_keys=False).apply(
-            lambda x: x.sample(frac=fraction, random_state=42)
-        )
-
+    INPUT_FOLDER = '2025-06-26-b/Input_Multiclass'
+    OUTPUT_FOLDER = '2025-06-26-b/Output_Multiclass'
     ONE_GB = 1 * 1024 * 1024 * 1024 # 1 GB in bytes
+    SAMPLE_FRACS = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
+    SKIP = True
 
-    sample_frac = 0.1
-    candidate_files = list(Path("ready").rglob("*.parquet"))
-    for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
-        for kind in tqdm(['Binary', 'Multiclass'], desc='Kind', leave=False):
+    candidate_files = list(Path(INPUT_FOLDER).rglob("*.parquet"))
+
+    candidate_files = sorted(candidate_files, key=lambda p: os.path.getsize(p))
+
+    for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+
+        sample_frac_suffix = str(int(100 * sample_frac)).zfill(3)
+
+        for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
+
             try:
-                if src_path.is_file() and kind in src_path.name:
+
+                # Checks
+                if src_path.is_file():
                     abs_path = str(src_path.absolute().resolve())
-                    dst_path = Path(abs_path.replace(
-                        '.parquet', f'_complexity_frac={int(100*sample_frac)}_pct.json')
-                    )
-                    if src_path.is_file() and src_path.exists() and src_path.stat().st_size > ONE_GB:
-                        tqdm.write(f"Skipping {src_path}; daatset is over 1GB.")
+                    dst_path = Path(abs_path
+                                    .replace(INPUT_FOLDER, f'{OUTPUT_FOLDER}/{sample_frac_suffix}_pct')
+                                    .replace('.parquet', f'_complexity.json'))
+                    src_path_short = '/'.join(str(src_path).split('/')[-2:])
+                    os.makedirs(dst_path.parent, exist_ok=True)
+
+                    if SKIP and src_path.stat().st_size > ONE_GB:
+                        tqdm.write(f"Skipping {src_path}; dataset is over 1GB.")
+                        # exit(0)
                         continue
-                    if dst_path.is_file() and dst_path.exists():
+                    elif SKIP and dst_path.exists() and dst_path.is_file():
                         # dst_path.unlink()
                         tqdm.write(f"Skipping {dst_path}; complexity JSON already exists.")
+                        # exit(0)
                         continue
+                    else:
+                        tqdm.write(f'[{now()}] DS: {src_path_short:<80} | PROCESSING @ FRAC={sample_frac:.2f}')
+
                     # DF (CPU)
                     df_cpu = pd.read_parquet(src_path)
                     shape_before = df_cpu.shape
+
+                    # Cast integer types to int32
+                    df_cpu = df_cpu.astype({col: 'int32' for col in df_cpu.select_dtypes(['int8', 'int16', 'int64']).columns})
+                    # Cast float types to float32
+                    df_cpu = df_cpu.astype({col: 'float32' for col in df_cpu.select_dtypes(['float16', 'float64']).columns})
+                    # Factorize categorical columns into int32 codes
+                    for col in df_cpu.select_dtypes(include='category').columns:
+                        df_cpu[col] = pd.factorize(df_cpu[col])[0].astype('int32')
+
                     df_cpu = df_cpu.replace([np.inf, -np.inf], np.nan)
                     df_cpu = df_cpu.dropna(axis='columns', how='all')
                     df_cpu = df_cpu.dropna(axis='index', how='any')
+
                     df_cpu['label'], label_mapping = df_cpu['label'].factorize()
-                    df_cpu = stratified_sample_fraction(df_cpu, 'label', fraction=sample_frac)
+                    n_classes_orig = df_cpu['label'].nunique()
+                    df_cpu = stratified_sample_with_min(
+                        df=df_cpu,
+                        stratify_col='label',
+                        max_total_samples=int(sample_frac * df_cpu.shape[0]),
+                        min_samples_per_class=int(1.0 / sample_frac)
+                    )
+                    assert df_cpu['label'].nunique() == n_classes_orig, "Some classes were lost during stratification."
                     label_mapping_dict = {str(label_mapping[i]): int(i) for i in range(len(label_mapping))}
                     shape_after = df_cpu.shape
+
                     # DF (GPU)
                     df_gpu = cudf.from_pandas(df_cpu)
+                    assert df_gpu['label'].nunique() == n_classes_orig, "Some classes were lost during CPU -> GPU."
                     del df_cpu
                     gc.collect()
-                    tqdm.write(f'[{now()}] DS: {str(src_path):<80}' + 
-                               f' | SHAPE_0: {str(shape_before):<16}' +
-                               f' | SHAPE_1: {str(shape_after):<16}')
+
+                    tqdm.write(f'[{now()}] DS: {src_path_short:<80} | SHAPE_0: {str(shape_before):<16} | SHAPE_1: {str(shape_after):<16}')
                     X, y = df_gpu.drop(columns=['label']), df_gpu['label']
-                    X, y = smart_categorical_encode(X, y)
+                    # X, y = smart_categorical_encode(X, y)
+
                     # Metrics
-                    metrics = compute_all_complexity_measures(X, y)
-                    metrics['mappings'] = label_mapping_dict
+                    metrics = compute_all_complexity_measures(X, y)                    
+                    # metrics['mappings'] = label_mapping_dict
+                    metrics['errors'] = []
+
+                    expected_keys = [
+                        'anova_f', 'mutual_info', 'kdn', 'nearest_enemy',
+                        'margin', 'intrinsic_dimensionality', 'class_imbalance',
+                        'knn_overlap', 'centroid_distance', 'clusterability'
+                    ]
+
+                    for key in expected_keys:
+                        if key in metrics.keys():
+                            for subkey, value in metrics[key].items():
+                                if not isinstance(value, (int, float)):
+                                    metrics['errors'].append({
+                                        'key': key,
+                                        'subkey':subkey, 
+                                        'message': f'{value} is not int/float'
+                                    })
+                        else:
+                            metrics['errors'].append({
+                                'key': key,
+                                'message': 'metric is missing'
+                            })
+
                     with open(dst_path, 'w') as fp:
                         json.dump(metrics, fp, indent=4)
-                    metrics_str = pformat(metrics, compact=True, indent=4)
-                    tqdm.write(f'[{now()}] MET: {metrics_str}')
+
+                    debug_json_path = Path(
+                        str(dst_path.absolute().resolve())
+                            .replace(INPUT_FOLDER, f'{OUTPUT_FOLDER}/{sample_frac_suffix}_pct')
+                            .replace('_complexity.json', '_complexity.error' if len(metrics['errors']) > 0 else '_complexity.success')
+                    )
+                    Path(debug_json_path).touch()
+
+                    tqdm.write(f'[{now()}] DS: {src_path_short:<80} | METRICS: {metrics}\n')
+                    del df_gpu
+                    gc.collect()
+
+                    # TODO aggregate
+
+                    # import json
+                    # from pathlib import Path
+                    # import pandas as pd
+
+                    # json_files = list(Path("Output_Multiclass").rglob("*_complexity.json"))
+
+                    # records = []
+                    # for file in json_files:
+                    #     with open(file) as f:
+                    #         metrics = json.load(f)
+                    #     flattened = flatten_metrics_dict(metrics)
+                    #     flattened["dataset_name"] = file.stem.replace("_complexity", "")
+                    #     records.append(flattened)
+
+                    # df_metrics = pd.concat(records, ignore_index=True)
+
+                    # df_difficulty = compute_composite_difficulty(df_metrics)
+
+                    # df_difficulty.sort_values("overall_difficulty", ascending=False)
+
             except Exception as e:
+
                 tqdm.write(f"[{now()}] Error in {src_path}: {e}")

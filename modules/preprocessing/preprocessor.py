@@ -2,6 +2,7 @@ import json
 import math
 import numpy as np
 import os
+import re
 from abc import ABC, abstractmethod
 
 import pandas as pd
@@ -387,8 +388,15 @@ class BasePreprocessingPipeline(ABC):
             log_memory_usage(self.data)
 
     @function_call_logger
-    def sort_columns(self) -> None:
-        cols = [x for x in self.data.columns.tolist() if x != self.target]
+    def clean_and_sort_columns(self) -> None:
+        # Rename all columns except the target
+        rename_map = {
+            col: re.sub(r"[^A-Za-z0-9]", "_", col).upper()
+            for col in self.data.columns if col != self.target
+        }
+        self.data = self.data.rename(columns=rename_map)
+        # Sort: features first, target last
+        cols = [col for col in self.data.columns if col != self.target]
         cols.append(self.target)
         log_print(f'Columns sorted according to {cols}.')
         self.data = self.data.reindex(columns=cols)
@@ -482,7 +490,7 @@ class BasePreprocessingPipeline(ABC):
             self.handle_object_columns(handle_obj_mode)       # Encode or transform object columns
             self.shrink_numeric_dtypes(shrink_num_mode)       # Downcast float64/int64 to float32/int32
             self.drop_high_unique_columns()                   # Drop columns where mostly all values are unique
-            self.sort_columns()                               # Sort columns (optional but reproducible)
+            self.clean_and_sort_columns()                     # Clean names and sort columns
             self.reset_index()                                # Reset index after row ops
             self.drop_na_duplicates()                         # Drop rows with all-NaNs and/or duplicates
             self.compute_complexity(complexity_mode)          # Compute metrics like ANOVA, KDN, etc.
