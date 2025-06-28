@@ -58,6 +58,19 @@ if __name__ == "__main__":
     # - NIDS
     # - ToN_IoT
 
+    # ~/.bashrc
+    # alias regen='PYTHONPATH=. python main.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/bccc.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/CICAPT_IIoT.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/CICEVSE2024.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/CICIoV2024.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/edge_iiotset.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/n_baiot.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/nids.py ; \
+    # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
+    # PYTHONPATH=. python move_files.py ; \
+    # PYTHONPATH=. python modules/preprocessing/complexity_gpu2.py'
+
     for i, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
 
         for j, dataset_cls in enumerate(tqdm(dataset_classes, desc='Dataset', leave=False)):
