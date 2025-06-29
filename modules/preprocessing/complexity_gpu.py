@@ -517,17 +517,24 @@ if __name__ == "__main__":
                     df=df_gpu,
                     stratify_col='label',
                     max_total_samples=int(sample_frac * len(df_gpu)),
-                    min_samples_per_class=int(1.0 / sample_frac)
+                    min_samples_per_class=max(10, min(df_gpu['label'].value_counts().values_host))
                 )
 
                 # Post-checks
                 shape_after = df_gpu.shape
                 n_classes_after = df_gpu['label'].nunique()
-                assert shape_after[1] == shape_before[1], (
-                    f"Sampled dataset column mismatch: before={shape_before[1]}, after={shape_after[1]}"
+                value_counts = df_gpu['label'].value_counts()
+                values_counts_mapped = {
+                    label_mappings['label'][k]: value_counts[k] for k in value_counts.index.values_host
+                }
+                assert n_classes_after > 2, (
+                    f"Sampled dataset has 2 or less labels: {values_counts_mapped}"
                 )
                 assert n_classes_after == n_classes_before, (
                     f"Class count changed during sampling: before={n_classes_before}, after={n_classes_after}"
+                )
+                assert shape_after[1] == shape_before[1], (
+                    f"Sampled dataset column mismatch: before={shape_before[1]}, after={shape_after[1]}"
                 )
 
                 tqdm.write(f'[{now()}] DS: {src_path_short:<80} | SHAPE_0: {str(shape_before):<16} | SHAPE_1: {str(shape_after):<16}')
