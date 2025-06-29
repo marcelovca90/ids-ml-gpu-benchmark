@@ -175,6 +175,26 @@ class BasePreprocessingPipeline(ABC):
             log_col_data(self.data, numeric_cols)
 
     @function_call_logger
+    def handle_ip_columns(self) -> None:
+        ipv4_pattern = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')
+        ipv6_pattern = re.compile(r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$')
+
+        def is_ip(val: str) -> bool:
+            val = val.strip()
+            return bool(ipv4_pattern.fullmatch(val)) or bool(ipv6_pattern.fullmatch(val))
+
+        def column_is_mostly_ip(col: pd.Series) -> bool:
+            non_null = col.dropna()
+            if non_null.empty:
+                return False
+            sample = non_null.sample(n=int(0.01*len(non_null)), random_state=self.seed).astype(str)
+            return sample.apply(is_ip).mean() > 0.95
+
+        ip_cols = [col for col in self.data.columns if col != self.target and column_is_mostly_ip(self.data[col])]
+        log_print(f"Dropping columns with IP-like values: {ip_cols}")
+        self.data = self.data.drop(columns=ip_cols)
+
+    @function_call_logger
     def handle_port_columns(self) -> None:
 
         def is_probably_port_column(series: pd.Series, colname: str) -> bool:
@@ -485,6 +505,7 @@ class BasePreprocessingPipeline(ABC):
             self.convert_to_numeric()                         # Convert object columns that look like numbers
             self.drop_infinite_rows()                         # Remove rows with inf/-inf
             self.round_floats(round_decimals)                 # Round float precision (e.g., to 3 decimals)
+            self.handle_ip_columns()                          # Drop IP-looking columns
             self.handle_port_columns()                        # Semantically bin port columns
             self.handle_hc_numeric_columns(handle_num_mode)   # Discretize high-cardinality numeric cols
             self.handle_object_columns(handle_obj_mode)       # Encode or transform object columns
