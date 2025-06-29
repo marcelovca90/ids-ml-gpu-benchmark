@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # PYTHONPATH=. python modules/preprocessing/custom/nids.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
     # PYTHONPATH=. python move_files.py ; \
-    # PYTHONPATH=. python modules/preprocessing/complexity_gpu2.py'
+    # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
 
     for i, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
 
