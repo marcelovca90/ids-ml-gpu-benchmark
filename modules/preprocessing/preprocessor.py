@@ -153,7 +153,7 @@ class BasePreprocessingPipeline(ABC):
             log_print(f"{col}\t{self.data[col].nunique()}")
 
     @function_call_logger
-    def handle_hc_numeric_columns(self, handle_num_mode='discretize') -> None:
+    def discretize_hc_numeric_columns(self, handle_num_mode='discretize') -> None:
         HIGH_CARD = 2**16       # 65,536
         VERY_HIGH_CARD = 2**20  # 1,048,576
         if handle_num_mode == 'discretize':
@@ -175,7 +175,7 @@ class BasePreprocessingPipeline(ABC):
             log_col_data(self.data, numeric_cols)
 
     @function_call_logger
-    def handle_ip_columns(self) -> None:
+    def drop_ip_columns(self) -> None:
         ipv4_pattern = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')
         ipv6_pattern = re.compile(r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$')
 
@@ -191,11 +191,44 @@ class BasePreprocessingPipeline(ABC):
             return sample.apply(is_ip).mean() > 0.95
 
         ip_cols = [col for col in self.data.columns if col != self.target and column_is_mostly_ip(self.data[col])]
-        log_print(f"Dropping columns with IP-like values: {ip_cols}")
-        self.data = self.data.drop(columns=ip_cols)
+
+        if ip_cols:
+            log_print(f"Dropping columns with IP-like values: {ip_cols}")
+            self.data = self.data.drop(columns=ip_cols)
+        else:
+            log_print("No IP-like columns detected.")
 
     @function_call_logger
-    def handle_port_columns(self) -> None:
+    def drop_mac_columns(self) -> None:
+        # Matches MACs with separators (:, -, _)
+        mac_sep_pattern = re.compile(r'^([0-9A-F]{2}[:\-_]){5}([0-9A-F]{2})$', re.IGNORECASE)
+        # Matches MACs without separators (12 hex pairs)
+        mac_nosep_pattern = re.compile(r'^[0-9A-F]{12}$', re.IGNORECASE)
+
+        def is_mac(val: str) -> bool:
+            val = val.strip()
+            return bool(mac_sep_pattern.fullmatch(val)) or bool(mac_nosep_pattern.fullmatch(val))
+
+        def column_is_mostly_mac(col: pd.Series) -> bool:
+            if not pd.api.types.is_object_dtype(col):
+                return False
+            non_null = col.dropna()
+            if non_null.empty:
+                return False
+            sample_size = max(10, min(int(0.01 * len(non_null)), 100))
+            sample = non_null.sample(n=sample_size, random_state=self.seed).astype(str)
+            return sample.apply(is_mac).mean() > 0.95
+
+        mac_cols = [col for col in self.data.columns if col != self.target and column_is_mostly_mac(self.data[col])]
+
+        if mac_cols:
+            log_print(f"Dropping columns with MAC-like values: {', '.join(mac_cols)}")
+            self.data = self.data.drop(columns=mac_cols)
+        else:
+            log_print("No MAC-like columns detected.")
+
+    @function_call_logger
+    def discretize_port_columns(self) -> None:
 
         def is_probably_port_column(series: pd.Series, colname: str) -> bool:
             include_filter = [
@@ -496,26 +529,27 @@ class BasePreprocessingPipeline(ABC):
         profile_mode: str | None = 'minimal'
     ) -> Self:
         if preload:
-            self.preload()
+            self.preload()                                       # Load previously processed files
         else:
-            self.prepare()                                    # Setup paths, configs, logging
-            self.load()                                       # Load raw data
-            self.sanitize()                                   # Clean up column names, fix encoding
-            self.infer_dtypes()                               # Guess column types (object -> number, etc.)
-            self.convert_to_numeric()                         # Convert object columns that look like numbers
-            self.drop_infinite_rows()                         # Remove rows with inf/-inf
-            self.round_floats(round_decimals)                 # Round float precision (e.g., to 3 decimals)
-            self.handle_ip_columns()                          # Drop IP-looking columns
-            self.handle_port_columns()                        # Semantically bin port columns
-            self.handle_hc_numeric_columns(handle_num_mode)   # Discretize high-cardinality numeric cols
-            self.handle_object_columns(handle_obj_mode)       # Encode or transform object columns
-            self.shrink_numeric_dtypes(shrink_num_mode)       # Downcast float64/int64 to float32/int32
-            self.drop_high_unique_columns()                   # Drop columns where mostly all values are unique
-            self.clean_and_sort_columns()                     # Clean names and sort columns
-            self.reset_index()                                # Reset index after row ops
-            self.drop_na_duplicates()                         # Drop rows with all-NaNs and/or duplicates
-            self.compute_complexity(complexity_mode)          # Compute metrics like ANOVA, KDN, etc.
-            self.compute_profile(profile_mode)                # Summarize stats, distributions
-            self.update_metadata()                            # Save dataset summary info
-            self.save()                                       # Persist cleaned data + metadata
+            self.prepare()                                       # Setup paths, configs, logging
+            self.load()                                          # Load raw data
+            self.sanitize()                                      # Clean up column names, fix encoding
+            self.infer_dtypes()                                  # Guess column types (object -> number, etc.)
+            self.convert_to_numeric()                            # Convert object columns that look like numbers
+            self.drop_infinite_rows()                            # Remove rows with inf/-inf
+            self.round_floats(round_decimals)                    # Round float precision (e.g., to 3 decimals)
+            self.drop_ip_columns()                               # Drop IP-looking columns
+            self.drop_mac_columns()                              # Drop MAC-looking columns
+            self.discretize_port_columns()                       # Semantically bin port columns
+            self.discretize_hc_numeric_columns(handle_num_mode)  # Discretize high-cardinality numeric cols
+            self.handle_object_columns(handle_obj_mode)          # Encode or transform object columns
+            self.shrink_numeric_dtypes(shrink_num_mode)          # Downcast float64/int64 to float32/int32
+            self.drop_high_unique_columns()                      # Drop columns where mostly all values are unique
+            self.clean_and_sort_columns()                        # Clean names and sort columns
+            self.reset_index()                                   # Reset index after row ops
+            self.drop_na_duplicates()                            # Drop rows with all-NaNs and/or duplicates
+            self.compute_complexity(complexity_mode)             # Compute metrics like ANOVA, KDN, etc.
+            self.compute_profile(profile_mode)                   # Summarize stats, distributions
+            self.update_metadata()                               # Save dataset summary info
+            self.save()                                          # Persist cleaned data + metadata
         return self
