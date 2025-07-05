@@ -12,9 +12,9 @@ if __name__ == "__main__":
 
     src_folder = "datasets"
 
-    dst_folder = "2025-06-28"
+    dst_folder = "2025-07-05"
 
-    dataset_kinds = ["Binary", "Multiclass"]
+    dataset_kinds = ["Multiclass"]
 
     candidate_files = list(Path(src_folder).rglob("*"))
 
