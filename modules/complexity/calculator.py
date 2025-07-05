@@ -392,7 +392,7 @@ if __name__ == "__main__":
         
         for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
             try:
-                if not src_path.is_file():# or not 'MQTT_IoT_IDS2020_BiflowFeatures' in str(src_path):
+                if not src_path.is_file():
                     continue
 
                 abs_path = str(src_path.resolve())
