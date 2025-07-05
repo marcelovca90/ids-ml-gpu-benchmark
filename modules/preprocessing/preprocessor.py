@@ -29,7 +29,6 @@ class BasePreprocessingPipeline(ABC):
         self.binarize = binarize
         self.kind = 'Binary' if self.binarize else 'Multiclass'
         self.metadata: dict = {}
-        self.complexity: dict = {}
         self.profile: ProfileReport = None
 
     @function_call_logger
@@ -467,22 +466,8 @@ class BasePreprocessingPipeline(ABC):
             'dtypes': self.data.dtypes.apply(str).to_dict(),
             'shape': self.data.shape,
             'memory_usage': self.data.memory_usage(deep=True).sum(),
-            'value_counts': self.data[self.target].value_counts().to_dict(),
-            'complexity': self.complexity.get(self.name, {})
+            'value_counts': self.data[self.target].value_counts().to_dict()
         }
-
-    @function_call_logger
-    def compute_complexity(self, complexity_mode=None) -> None:
-        if complexity_mode:
-            if complexity_mode == 'cpu':
-                from modules.preprocessing.complexity_cpu import (
-                    compute_all_complexity_measures, smart_categorical_encode)
-            elif complexity_mode == 'gpu':
-                from modules.preprocessing.complexity_gpu import (
-                    compute_all_complexity_measures, smart_categorical_encode)
-            X, y = self.data.drop(columns=[self.target]), self.data[self.target]
-            X, y = smart_categorical_encode(X, y)
-            self.complexity = compute_all_complexity_measures(X, y)
 
     @function_call_logger
     def compute_profile(self, profile_mode='minimal') -> None:
@@ -525,7 +510,6 @@ class BasePreprocessingPipeline(ABC):
         shrink_num_mode: str | None = 'conservative',
         handle_num_mode: str | None = 'discretize',
         handle_obj_mode: str | None = 'auto',
-        complexity_mode: str | None = None,
         profile_mode: str | None = 'minimal'
     ) -> Self:
         if preload:
@@ -548,7 +532,6 @@ class BasePreprocessingPipeline(ABC):
             self.clean_and_sort_columns()                        # Clean names and sort columns
             self.reset_index()                                   # Reset index after row ops
             self.drop_na_duplicates()                            # Drop rows with all-NaNs and/or duplicates
-            self.compute_complexity(complexity_mode)             # Compute metrics like ANOVA, KDN, etc.
             self.compute_profile(profile_mode)                   # Summarize stats, distributions
             self.update_metadata()                               # Save dataset summary info
             self.save()                                          # Persist cleaned data + metadata
