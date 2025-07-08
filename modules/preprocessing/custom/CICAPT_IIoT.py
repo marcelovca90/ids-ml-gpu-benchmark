@@ -82,7 +82,7 @@ if __name__ == "__main__":
     binarize_flags = [False]
 
     subfolder_and_subfiles = [
-        {'folder': 'Phase1', 'file': 'phase1_NetworkData.csv'},
+        # {'folder': 'Phase1', 'file': 'phase1_NetworkData.csv'}, # single class
         {'folder': 'Phase2', 'file': 'phase2_NetworkData.csv'},
     ]
          
