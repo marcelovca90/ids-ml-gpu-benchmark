@@ -9,7 +9,6 @@ import cupy as cp
 import numpy as np
 from cuml.decomposition import PCA
 from cuml.linear_model import LogisticRegression
-from cuml.naive_bayes import GaussianNB
 from cuml.svm import LinearSVC
 from tqdm import tqdm
 
