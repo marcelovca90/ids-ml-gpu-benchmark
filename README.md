@@ -28,9 +28,11 @@ Authors: *Marcelo V. C. Aragão, Felipe A. P. de Figueiredo, and Samuel B. Mafra
     design of efficient, generalizable IDS models.
 
 ## Environment
-```
-Ubuntu 22.04.5 LTS @ 6.6.87.1-microsoft-standard-WSL2
-```
+- Host OS: Windows 11 Pro 23H2
+- Guest OS: Ubuntu 22.04.5 LTS
+- WSL: 6.6.87.1-microsoft-standard-WSL2
+- System: AMD Ryzen 9 5900X CPU, 128 GB DDR4-3200 RAM
+- GPU: Nvidia GeForce RTX 4090 (24 GB, driver version 576.80, CUDA version 12.9)
 
 ## Setup
 ```bash
