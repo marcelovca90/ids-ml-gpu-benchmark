@@ -66,7 +66,8 @@ PYTHONPATH=. python -u modules/preprocessing/custom/CICIoV2024.py ; \
 PYTHONPATH=. python -u modules/preprocessing/custom/edge_iiotset.py ; \
 PYTHONPATH=. python -u modules/preprocessing/custom/n_baiot.py ; \
 PYTHONPATH=. python -u modules/preprocessing/custom/nids.py ; \
-PYTHONPATH=. python -u modules/preprocessing/custom/ton_iot.py
+PYTHONPATH=. python -u modules/preprocessing/custom/ton_iot.py ; \
+PYTHONPATH=. python -u move_files.py
 ```
 3. Calculate complexity metrics
 ```bash
