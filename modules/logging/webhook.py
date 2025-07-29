@@ -1,8 +1,8 @@
 from datetime import datetime
 from discord_webhook import DiscordWebhook
 
-IS_ENABLED = True
-WEBHOOK_URL = "https://discord.com/api/webhooks/1383171321533431808/5PiRw1myXbDaq-Yvi-rCYFKPS-7tCTOumrv3o8iJsNEX2bBUJB5kkSwuSV-SyMuBU2dM"
+IS_ENABLED = False
+WEBHOOK_URL = "INSERT_DISCORD_WEBHOOK_URL_HERE"
 
 def now():
     now = datetime.now()
