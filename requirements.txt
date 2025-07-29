@@ -1,6 +1,11 @@
+pandas
+fastparquet
+numpy
+scipy
 colorlog
 dtype_diet
 imbalanced-learn
+optuna
 pytictoc
 chardet
 type_infer
@@ -8,5 +13,7 @@ ydata-profiling
 discord-webhook
 papermill
 openpyxl
+matplotlib
+ipywidgets
 plotly
 kaleido
