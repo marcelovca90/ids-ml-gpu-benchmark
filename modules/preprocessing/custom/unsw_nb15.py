@@ -1,6 +1,10 @@
+import chardet
 import os
 import re
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
@@ -8,11 +12,12 @@ from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 from modules.preprocessing.utils import _replace_values
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class UNSW_NB15(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'unsw_nb15')
         self.name = 'UNSW_NB15'
         self.target = 'label'
@@ -22,7 +27,10 @@ class UNSW_NB15(BasePreprocessingPipeline):
         work_folder = os.path.join(os.getcwd(), self.folder, 'source')
         filename_cols = os.path.join(work_folder, 'NUSW-NB15_features.csv')
         columns = []
-        with open(filename_cols) as file:
+        with open(filename_cols, 'rb') as file:
+            raw = file.read()
+            enc = chardet.detect(raw)['encoding']
+        with open(filename_cols, encoding=enc) as file:
             for line in file.readlines():
                 if re.match(r'^\d+', line):
                     columns.append(line.split(',')[1])
@@ -38,7 +46,7 @@ class UNSW_NB15(BasePreprocessingPipeline):
             df = df.drop(columns=['srcip', 'dstip', 'Label'])
             df = df.rename(columns={'attack_cat': self.target})
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:
@@ -59,10 +67,14 @@ class UNSW_NB15(BasePreprocessingPipeline):
         log_value_counts(self.data, self.target)
         data_obj = self.data.select_dtypes(['object'])
         self.data[data_obj.columns] = data_obj.apply(lambda x: x.str.strip())
-        self.data['sport'].fillna('-1', inplace=True)
-        self.data['ct_flw_http_mthd'].fillna(-1.0, inplace=True)
-        self.data['is_ftp_login'].fillna(-1.0, inplace=True)
-        self.data['ct_ftp_cmd'].fillna('-1', inplace=True)
-        self.data[self.target].fillna('Normal', inplace=True)
+        self.data['sport'] = self.data['sport'].fillna('-1')
+        self.data['ct_flw_http_mthd'] = self.data['ct_flw_http_mthd'].fillna(-1.0)
+        self.data['is_ftp_login'] = self.data['is_ftp_login'].fillna(-1.0)
+        self.data['ct_ftp_cmd'] = self.data['ct_ftp_cmd'].fillna('-1')
+        self.data[self.target] = self.data[self.target].fillna('Normal')
+        if self.binarize:
+            self.data[self.target] = np.where(
+                (self.data[self.target] == 'Normal'), 'Benign', 'Malign'
+            )
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)

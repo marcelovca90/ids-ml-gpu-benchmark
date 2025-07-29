@@ -1,18 +1,21 @@
 import os
 import re
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
-from modules.preprocessing.stats import log_value_counts
-from modules.preprocessing.utils import _convert_to_int, _replace_values
+from modules.preprocessing.utils import _convert_to_int
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class BoT_IoT_Micro(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'bot_iot')
         self.name = 'BoT_IoT_Micro'
         self.target = 'label'
@@ -37,11 +40,17 @@ class BoT_IoT_Micro(BasePreprocessingPipeline):
             log_print(f'Converting file \'{filename_csv}\' to parquet.')
             df = pd.read_csv(filename_csv, header=None,
                              names=columns, low_memory=False)
-            df[self.target] = df['category'] + '_' + df['subcategory']
+            if self.binarize:
+                df[self.target] = np.where(
+                    (df['category'] == 'Normal') & (df['subcategory'] == 'Normal'),
+                    'Benign', 'Malign'
+                )
+            else:
+                df[self.target] = df['category'] + '_' + df['subcategory']
             df = df.drop(columns=['pkSeqID', 'stime', 'saddr', 'daddr', 'seq',
                                   'ltime', 'attack', 'category', 'subcategory'])
             df.to_parquet(filename_parquet)
-            log_print(f'Converted file \'{filename_csv}\' to parquet.')
+            log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:

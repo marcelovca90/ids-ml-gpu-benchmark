@@ -1,9 +1,11 @@
 import inspect
 import logging
+import os
 import sys
 
 import colorlog
 from colorama import Fore, Style
+from datetime import datetime
 
 formatter = colorlog.ColoredFormatter(
     "%(log_color)s[%(levelname)1.1s %(asctime)s]%(reset)s %(message)s")
@@ -11,10 +13,13 @@ formatter = colorlog.ColoredFormatter(
 handler_stdout = logging.StreamHandler(stream=sys.stdout)
 handler_stdout.setFormatter(formatter)
 
-handler_file = logging.FileHandler(f"logger.log", mode="w")
+os.makedirs("logs", exist_ok=True)
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+handler_file = logging.FileHandler(f"logs/{timestamp}.log", mode="w")
 handler_file.setFormatter(formatter)
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("iot-threat-classifier")
+# logger = logging.getLogger("iot-threat-classifier")
 logger.setLevel(logging.INFO)
 logger.addHandler(handler_stdout)
 logger.addHandler(handler_file)

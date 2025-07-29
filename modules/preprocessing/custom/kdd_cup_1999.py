@@ -1,6 +1,9 @@
 import os
 import re
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
@@ -8,11 +11,12 @@ from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 from modules.preprocessing.utils import _replace_values
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class KDD_Cup_1999(BasePreprocessingPipeline):
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'kdd_cup_1999')
         self.name = 'KDD_Cup_1999'
         self.target = 'label'
@@ -33,7 +37,7 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         df = pd.read_csv(filename_csv, header=None,
                          names=columns, low_memory=False)
         df.to_parquet(filename_parquet)
-        log_print(f'Converted file \'{filename_csv}\' to parquet.')
+        log_print(f'Converted  file \'{filename_csv}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:
@@ -51,5 +55,9 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         for value in self.data[self.target].unique():
             _replace_values(self.data, self.target,
                             value, value.replace('.', ''))
+        if self.binarize:
+            self.data[self.target] = np.where(
+                (self.data[self.target] == 'normal'), 'Benign', 'Malign'
+            )
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)

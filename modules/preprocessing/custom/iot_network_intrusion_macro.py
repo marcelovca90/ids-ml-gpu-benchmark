@@ -2,18 +2,22 @@ import json
 import os
 import re
 import subprocess
+import sys
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 
+sys.path.append(Path(__file__).absolute().parent.parent)
 
 class IoT_Network_Intrusion_Macro(BasePreprocessingPipeline):
 
     @function_call_logger
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, binarize=False) -> None:
+        super().__init__(binarize=binarize)
         self.folder = os.path.join('datasets', 'iot_network_intrusion')
         self.name = 'IoT_Network_Intrusion_Macro'
         self.target = 'label'
@@ -70,21 +74,54 @@ class IoT_Network_Intrusion_Macro(BasePreprocessingPipeline):
             tshark_args.remove("null")
         if not os.path.exists(output_directory):
             os.makedirs(output_directory, exist_ok=True)
+        error_flag, tshark_valid_args = False, tshark_args[:11]
+        # Try with all fields
         with open(output_filename, "w") as handle:
-            subprocess.run(args=tshark_args, stdout=handle, check=True)
+            try:
+                subprocess.run(
+                    args=tshark_args, check=True, text=True,
+                    stdout=handle, stderr=subprocess.PIPE
+                )
+            except Exception as e:
+                error_flag = True
+                if 'tshark: Some fields aren\'t valid:' in e.stderr:
+                    invalid_fields = [x for x in e.stderr.replace('\t', '')
+                                    .splitlines() if 'tshark' not in x]
+                    for i in range(len(tshark_valid_args), len(tshark_args)-1, 2):
+                        flag, field = tshark_args[i], tshark_args[i+1]
+                        if field not in invalid_fields:
+                            tshark_valid_args.extend([flag, field])
+                else:
+                    print('Error on first attempt:', str(e))
+                    raise(e)
+        # Retry with filtered fields (if needed)
+        if error_flag:
+            with open(output_filename, "w") as handle:
+                try:
+                    subprocess.run(
+                        args=tshark_valid_args, check=True, text=True,
+                        stdout=handle, stderr=subprocess.PIPE
+                    )
+                except Exception as e:
+                    print('Error on second attempt:', str(e))
+                    raise(e)
 
     @function_call_logger
-    def aggregate_csvs(self, mode='macro'):
+    def aggregate_csvs(self):
         df_list = []
         work_folder = os.path.join(os.getcwd(), self.folder, 'source', 'csv')
         for csv_filename in os.listdir(work_folder):
-            parts = csv_filename.split('_')
-            category, subcategory = parts[1], parts[2].replace('.csv', '')
-            df = pd.read_csv(
-                os.path.join(work_folder, csv_filename), on_bad_lines="skip")
-            df['label'] = category if mode == 'macro' else f"{category}_{subcategory}"
+            category = csv_filename.split('_')[1]
+            df = pd.read_csv(os.path.join(work_folder, csv_filename),
+                             low_memory=False, on_bad_lines="skip")
+            df = df.drop(columns=['_ws.col.Time', '_ws.col.cls_time'], errors='ignore')
+            df['label'] = category
             df_list.append(df)
         ans = pd.concat(df_list).infer_objects()
+        if self.binarize:
+            ans['label'] = np.where(
+                (ans['label'] == 'Normal'), 'Benign', 'Malign'
+            )
         return ans
 
     @function_call_logger
@@ -113,11 +150,12 @@ class IoT_Network_Intrusion_Macro(BasePreprocessingPipeline):
 
         df = self.aggregate_csvs()
 
+        filename_csv = os.path.join(work_folder, self.name + '.csv')
+        log_print(f'Saving file \'{filename_csv}\' to CSV.')
+        df.to_csv(filename_csv, index=False)
         filename_parquet = os.path.join(work_folder, self.name + '.parquet')
         log_print(f'Saving file \'{filename_parquet}\' to parquet.')
-        df.to_csv(filename_parquet, index=False)
         df.to_parquet(filename_parquet)
-        log_print(f'Saving file \'{filename_parquet}\' to parquet.')
 
     @function_call_logger
     def load(self) -> None:
