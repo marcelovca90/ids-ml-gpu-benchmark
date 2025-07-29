@@ -36,6 +36,8 @@ Authors: *Marcelo V. C. Aragão, Felipe A. P. de Figueiredo, and Samuel B. Mafra
 
 ## Setup
 ```bash
+sudo apt update
+
 sudo apt install git-lfs libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2
 
 git lfs install
