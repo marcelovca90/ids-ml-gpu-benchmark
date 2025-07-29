@@ -138,7 +138,11 @@ results/*
 *.html
 *.log
 *.parquet
+*.pdf
 *.png
+*.tex
+*.txt
 *.xlsx
 *.zip
 ready/*
+2025*
