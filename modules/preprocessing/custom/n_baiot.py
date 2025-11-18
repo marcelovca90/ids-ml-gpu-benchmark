@@ -120,7 +120,7 @@ if __name__ == "__main__":
                 # ==================================================
                 suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
 
-                success = safe_exec(
+                run_result = safe_exec(
                     runnable=lambda: N_BaIoT(
                         subfolder=subfolder,
                         sample_frac=1.0,
@@ -133,7 +133,7 @@ if __name__ == "__main__":
                 )
 
                 # If Full run fails, skip sampled runs for this seed
-                if not success:
+                if not run_result['success']:
                     continue
 
                 # ==================================================
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
                     suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                    safe_exec(
+                    run_result = safe_exec(
                         runnable=lambda: N_BaIoT(
                             subfolder=subfolder,
                             sample_frac=sample_frac,
@@ -158,7 +158,7 @@ if __name__ == "__main__":
                     )
 
     # 4. Final Cleanup
-    safe_exec(
+    run_result = safe_exec(
         runnable=lambda: copy_files(),
         msg_prefix="[FINAL]",
         dataset_name="N_BaIoT",

@@ -115,7 +115,7 @@ if __name__ == "__main__":
                 # to generate the base artifacts (cleaning, splitting, ID creation).
                 suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
                 
-                success = safe_exec(
+                run_result = safe_exec(
                     runnable=lambda: BCCC(
                         subfolder=subfolder, 
                         sample_frac=1.0, 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
                 # Critical Safety Check:
                 # If the Full run fails (missing raw CSV, etc.), 
                 # we MUST skip sampled runs for this seed as they have nothing to load.
-                if not success:
+                if not run_result['success']:
                     continue
 
                 # ==================================================
@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
                     suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                    safe_exec(
+                    run_result = safe_exec(
                         runnable=lambda: BCCC(
                             subfolder=subfolder, 
                             sample_frac=sample_frac, 
@@ -156,7 +156,7 @@ if __name__ == "__main__":
                     )
 
     # 4. Final Cleanup / Organization
-    safe_exec(
+    run_result = safe_exec(
         runnable=lambda: copy_files(),
         msg_prefix="[FINAL]",
         dataset_name="BCCC",

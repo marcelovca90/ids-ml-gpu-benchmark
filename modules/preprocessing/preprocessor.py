@@ -20,6 +20,7 @@ from modules.preprocessing.splitting import (
     sample_train_subset, train_val_test_split_fn
 )
 from modules.preprocessing.preproc_utils import NumpyEncoder
+from modules.profiling.resources_v2 import ResourceMonitor
 
 class BasePreprocessingPipeline(ABC):
 
@@ -518,11 +519,13 @@ class BasePreprocessingPipeline(ABC):
     def train_val_test_split(self) -> None:
         """
         Split self.data into FULL train/val/test sets.
-
-        - df_train_full, df_val_full, df_test_full are created here.
-        - df_*_sampled will be created later (e.g. by sampling).
+        
+        MEMORY OPTIMIZATION:
+        Once the split is done, self.data is redundant. We delete it 
+        and force garbage collection to free up RAM immediately.
         """
-
+        
+        # 1. Perform the split
         self.df_train_full, self.df_val_full, self.df_test_full = train_val_test_split_fn(
             self.data,
             target_column=self.target,
@@ -530,7 +533,17 @@ class BasePreprocessingPipeline(ABC):
             random_state=self.seed,
         )
 
-        # At this point sampled sets may not exist yet, so don't require them
+        # 2. Free Memory
+        import gc
+        # Optional: Log how much we are freeing (if pandas is available)
+        if hasattr(self.data, 'memory_usage'):
+             mem_usage = self.data.memory_usage(deep=True).sum() / 1024**2
+             log_print(f"Memory Optimization: Freeing self.data (~{mem_usage:.2f} MB)")
+        
+        self.data = None
+        gc.collect()
+
+        # 3. Verify
         self.check_attrs("train_val_test_split", include_sampled=False)
 
     @function_call_logger
@@ -636,7 +649,6 @@ class BasePreprocessingPipeline(ABC):
         if handle_num_mode != "discretize":
             return
 
-        # Default to both for backward compatibility
         if target_universes is None:
             target_universes = ["FULL", "SAMPLED"]
 
@@ -644,18 +656,19 @@ class BasePreprocessingPipeline(ABC):
         VERY_HIGH_CARD = 2**20  # 1,048,576
 
         for u_name in target_universes:
-            # Check if this universe exists (e.g., if running sampled only, ensure df_train_sampled is there)
             u_def = self._get_universe_definition(u_name)
             if not hasattr(self, u_def['train']):
                 continue
 
             train_df = getattr(self, u_def['train'])
             
-            # Identify columns in THIS universe's training set
+            # Identify numeric columns (Exclude Target and _ROW_ID)
             numeric_cols = train_df.select_dtypes(include=["number"]).columns
             numeric_cols = [
                 col for col in numeric_cols
-                if train_df[col].nunique(dropna=False) > HIGH_CARD
+                if col != self.target 
+                and col != "_ROW_ID" 
+                and train_df[col].nunique(dropna=False) > HIGH_CARD
             ]
 
             if not numeric_cols:
@@ -668,7 +681,8 @@ class BasePreprocessingPipeline(ABC):
 
             bins_dict = {}
 
-            # --- FIT (Calculate bins on Train) ---
+            # --- FIT & TRANSFORM TRAIN ---
+            # We transform TRAIN here directly to get the bins and labels
             for col in numeric_cols:
                 nunique = train_df[col].nunique(dropna=False)
 
@@ -679,6 +693,7 @@ class BasePreprocessingPipeline(ABC):
                     labels = [f"Q{i+1}" for i in range(len(intervals))]
                     
                     bins_dict[col] = {"type": "qcut", "bins": intervals, "labels": labels}
+                    # Transform Train immediately
                     train_df[col] = qcut_result.cat.rename_categories(labels)
 
                 elif nunique > HIGH_CARD:
@@ -688,28 +703,29 @@ class BasePreprocessingPipeline(ABC):
                     labels = [f"Q{i+1}" for i in range(len(intervals))]
 
                     bins_dict[col] = {"type": "cut", "bins": intervals, "labels": labels}
+                    # Transform Train immediately
                     train_df[col] = cut_result.cat.rename_categories(labels)
 
-            # Update Train and store bins
+            # Update Train in self (It is now Categorical)
             setattr(self, u_def['train'], train_df)
             setattr(self, u_def['bins_numeric'], bins_dict)
 
-            # --- TRANSFORM (Apply to Train/Val/Test of this universe) ---
-            # Note: We re-apply to train to ensure consistency, though strictly 'train_df' is already done above.
-            # It is safer to loop all 3.
+            # --- TRANSFORM VAL & TEST ---
+            # FIX: Do NOT include 'train' here, because it was already transformed above!
+            # Re-running pd.cut on the now-categorical train data causes the 'float vs str' crash.
             for col, cfg in bins_dict.items():
                 intervals = cfg["bins"]
                 labels = cfg["labels"]
                 bin_edges = [iv.left for iv in intervals] + [intervals[-1].right]
 
-                for split_key in ['train', 'val', 'test']:
+                for split_key in ['val', 'test']:
                     df_attr = u_def[split_key]
                     if not hasattr(self, df_attr): continue
                     
                     df = getattr(self, df_attr)
                     if col not in df.columns: continue
                     
-                    # Apply cuts
+                    # Apply cuts using the edges derived from Train
                     df[col] = pd.cut(df[col], bins=bin_edges, labels=labels)
                     df[col] = df[col].astype("category")
                     setattr(self, df_attr, df)
@@ -1138,7 +1154,7 @@ class BasePreprocessingPipeline(ABC):
                 "dtypes": getattr(self, u_def['train']).dtypes.apply(str).to_dict(),
                 "description": getattr(self, u_def['train']).describe(include="all").to_dict(),
                 "shapes": {},
-                "memory_usage": {},
+                "memory_usage_mb": {},
                 "target_value_counts": {}
             }
 
@@ -1148,7 +1164,10 @@ class BasePreprocessingPipeline(ABC):
                     suffix = f"{split_key}_{u_def['metadata_key']}" # e.g. train_full
                     
                     meta_dict["shapes"][suffix] = df.shape
-                    meta_dict["memory_usage"][suffix] = df.memory_usage(deep=True).sum()
+
+                    mem_bytes = df.memory_usage(deep=True).sum()
+                    meta_dict["memory_usage_mb"][suffix] = round(mem_bytes / 1024**2, 2)
+                    
                     if self.target in df.columns:
                         meta_dict["target_value_counts"][suffix] = df[self.target].value_counts().to_dict()
 
@@ -1214,13 +1233,17 @@ class BasePreprocessingPipeline(ABC):
         profile_mode: str | None = 'minimal'
     ) -> Self:
 
-        # ====================================================
-        # MODE A: FULL GENERATION (preload=False)
-        # ====================================================
+        # 1. Start Monitoring (Non-blocking)
+        monitor = ResourceMonitor()
+        monitor.start()
+
+        # 2. Run Execution Logic (Flat)
+        target = []
+
         if not preload:
             log_print("--- PIPELINE MODE: FULL GENERATION ---")
             
-            # 1. Raw Loading & Rule-Based Cleaning
+            # a. Raw Loading & Rule-Based Cleaning
             self.prepare()
             self.load()
             self.sanitize()
@@ -1234,11 +1257,11 @@ class BasePreprocessingPipeline(ABC):
             self.rule_based_handle_object_columns(handle_obj_mode)
             self.drop_na_duplicates()
             
-            # 2. Split into FULL universe
+            # b. Split into FULL universe
             self.train_val_test_split()
             self.drop_high_unique_columns() 
             
-            # 3. Determine Targets
+            # c. Determine Targets
             target = ["FULL"]
             # If user asked for a sample (e.g., 0.2) but started from raw data (preload=False),
             # we generate BOTH the Full universe and the Sampled universe in this single run.
@@ -1248,50 +1271,57 @@ class BasePreprocessingPipeline(ABC):
                 self.assert_disjoint_subsets()
                 target.append("SAMPLED")
 
-            # Drop ID immediately after checking disjointness
+            # d. Drop ID immediately after checking disjointness
             self.drop_row_id(target_universes=target)
 
-            # 4. Process Targets (FULL, plus SAMPLED if applicable)
+            # e. Process Targets (FULL, plus SAMPLED if applicable)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
             self.shrink_numeric_dtypes(shrink_num_mode, target_universes=target)
             self.clean_and_sort_columns(target_universes=target)
             self.reset_index(target_universes=target)
             
-            # 5. Profile & Save
+            # f. Profile & Save
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
-            self.save(target_universes=target)
 
-        # ====================================================
-        # MODE B: SAMPLED GENERATION (preload=True)
-        # ====================================================
         else:
             log_print(f"--- PIPELINE MODE: SAMPLED (frac={self.sample_frac}) ---")
             
-            # 1. Load the already-processed FULL universe
+            # a. Load the already-processed FULL universe
             self.preload()
             
-            # 2. Create the Sampled Universe (Derived from Full)
+            # b. Create the Sampled Universe (Derived from Full)
             self.sample_train_subset()
             self.assert_disjoint_subsets()
             
-            # 3. Process SAMPLED Universe ONLY
+            # c. Process SAMPLED Universe ONLY
             target = ["SAMPLED"]
             
-            # 4. Drop ID immediately after checking disjointness
+            # d. Drop ID immediately after checking disjointness
             self.drop_row_id(target_universes=target)
 
-            # 5. Process Targets (SAMPLED only)
+            # e. Process Targets (SAMPLED only)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
             self.shrink_numeric_dtypes(shrink_num_mode, target_universes=target)
             self.clean_and_sort_columns(target_universes=target)
             self.reset_index(target_universes=target)
             
-            # 6. Profile & Save SAMPLED
+            # f. Profile & Save SAMPLED
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
-            self.save(target_universes=target)
+
+        # 3. Stop Monitoring
+        monitor.stop()
+        
+        # 4. Inject Profiling Stats
+        for u_name in target:
+            key = self._get_universe_definition(u_name)['metadata_key']
+            if key in self.metadata:
+                self.metadata[key]['execution_stats'] = monitor.stats
+
+        # 4. Save
+        self.save(target_universes=target)
 
         return self

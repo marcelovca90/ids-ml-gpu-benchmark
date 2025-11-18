@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -51,29 +52,41 @@ def now():
     ms_part = f'{int(now.microsecond / 1000):03d}'
     return f'{yyyymmdd_hhmmss_part},{ms_part}'
 
-def safe_exec(runnable, msg_prefix="", dataset_name="", msg_suffix=""):
+def safe_exec(runnable, msg_prefix, dataset_name, msg_suffix):
     """
     Wraps execution with standard logging and error handling.
+    Prints full stack trace on error for debugging.
     
-    Args:
-        runnable (callable): A lambda or function to execute (e.g., lambda: obj.pipeline())
-        msg_prefix (str): Log prefix (e.g., "[01/05]")
-        dataset_name (str): Name of the dataset class
-        msg_suffix (str): Log suffix (e.g., "b=False f=1.0 s=17")
-    
-    Returns:
-        bool: True if successful, False if an exception occurred.
+    Returns: 
+        dict: {'success': bool, 'error': str | None}
     """
+    result = {
+        "success": False,
+        "error": None
+    }
 
     try:
         log_event(msg_prefix, dataset_name, msg_suffix, "start")
+        
+        # Run the function
         runnable()
+            
         log_event(msg_prefix, dataset_name, msg_suffix, "finish")
-        return True
+        
+        result["success"] = True
+        return result
+
     except Exception as e:
+        # 1. Log the short error (for history/discord)
         log_event(msg_prefix, dataset_name, f"{msg_suffix} — {e}", "error")
-        exit()
-        return False
+        
+        # 2. Print the FULL Stack Trace (Critical for debugging)
+        log_event("--- STACK TRACE START ---")
+        log_event(traceback.format_exc())
+        log_event("--- STACK TRACE END ---")
+        
+        result["error"] = str(e)
+        return result
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):

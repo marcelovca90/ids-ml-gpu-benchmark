@@ -84,7 +84,7 @@ if __name__ == "__main__":
                 # We run this first to generate the base artifacts.
                 suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
                 
-                success = safe_exec(
+                run_result = safe_exec(
                     runnable=lambda: dataset_cls(sample_frac=1.0, seed=seed, binarize=binarize_flag).pipeline(preload=False),
                     msg_prefix=msg_prefix,
                     dataset_name=ds_name,
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
                 # If the full run failed, we MUST skip the sampled runs for this seed
                 # because the base artifacts won't exist.
-                if not success:
+                if not run_result['success']:
                     continue
 
                 # --- 2. Sampled Runs (frac < 1.0) ---
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
                     suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                    safe_exec(
+                    run_result = safe_exec(
                         runnable=lambda: dataset_cls(sample_frac=sample_frac, seed=seed, binarize=binarize_flag).pipeline(preload=True),
                         msg_prefix=msg_prefix,
                         dataset_name=ds_name,
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                     )
     
     # 3; Final Cleanup / Organization
-    safe_exec(
+    run_result = safe_exec(
         runnable=lambda: copy_files(),
         msg_prefix="[FINAL]",
         dataset_name="Main",

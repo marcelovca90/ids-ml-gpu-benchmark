@@ -17,3 +17,4 @@ scipy==1.16.1
 tqdm==4.67.1
 type_infer==0.0.23
 ydata_profiling==4.16.1
+nvidia-ml-py==12.575.51
