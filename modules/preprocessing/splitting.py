@@ -1,4 +1,4 @@
-from sklearn.model_selection import train_test_split as skl_train_test_split
+from sklearn.model_selection import train_test_split
 import pandas as pd
 
 def ensure_min_samples_per_class(df, stratify_col, min_samples_per_class, random_state):
@@ -23,8 +23,12 @@ def assign_subsets(df, stratify_col, train_frac, val_frac, test_frac, random_sta
     assert train_frac + val_frac + test_frac == 1.0, "Fractions must sum to 1"
 
     # Assign subset labels
-    df_train, df_temp = skl_train_test_split(df, test_size=(1 - train_frac), stratify=df[stratify_col], random_state=random_state)
-    df_val, df_test = skl_train_test_split(df_temp, test_size=(test_frac / (val_frac + test_frac)), stratify=df_temp[stratify_col], random_state=random_state)
+    df_train, df_temp = train_test_split(
+        df, test_size=(1 - train_frac), stratify=df[stratify_col], random_state=random_state
+    )
+    df_val, df_test = train_test_split(
+        df_temp, test_size=(test_frac / (val_frac + test_frac)), stratify=df_temp[stratify_col], random_state=random_state
+    )
 
     df_train["subset"] = "train"
     df_val["subset"] = "val"
@@ -48,7 +52,14 @@ def assign_subsets(df, stratify_col, train_frac, val_frac, test_frac, random_sta
 #     return df_sampled.reset_index(drop=True)
 
 def train_val_test_split_fn(df_full, target_column, min_samples_per_class, random_state):
-    # Ignore helper cols when capturing baseline dtypes
+    # ---------------------------------------------------------
+    # 1. Setup & ID Generation
+    # ---------------------------------------------------------
+    df_full = df_full.reset_index(drop=True)
+    if "_ROW_ID" not in df_full.columns:
+        df_full["_ROW_ID"] = df_full.index.astype("int64")
+
+    # Capture baseline dtypes
     df_dtypes_before = (
         df_full
         .drop(columns=["_ROW_ID"], errors="ignore")
@@ -56,57 +67,97 @@ def train_val_test_split_fn(df_full, target_column, min_samples_per_class, rando
         .sort_index()
     )
 
-    # Ensure enough samples before splitting
-    split_ok = False
-    while not split_ok:
-        df_full = ensure_min_samples_per_class(df_full, target_column, min_samples_per_class, random_state)
-        df_full = df_full.reset_index(drop=True)  # Reset index before splitting
-        df_full["_ROW_ID"] = df_full.index.astype("int64")
-        df_dtypes_backup = df_full.dtypes.copy(deep=True)
+    # ---------------------------------------------------------
+    # 2. Dynamic Stratified Split
+    # ---------------------------------------------------------
+    # Start with 3 because you cannot stratify 3-split a single sample.
+    rare_threshold = 3
+    split_successful = False
+    
+    df_train, df_val, df_test = None, None, None
 
-        # Factorize for stratification
-        category_mappings = {}
+    while not split_successful:
+        # A. Filter rare classes based on current threshold
+        class_counts = df_full[target_column].value_counts()
+        rare_classes = class_counts[class_counts < rare_threshold].index
+        
+        df_rare = df_full[df_full[target_column].isin(rare_classes)]
+        df_common = df_full[~df_full[target_column].isin(rare_classes)]
 
-        for col, dtype in df_full.dtypes.to_dict().items():
-            if dtype == 'category':
-                codes, uniques = df_full[col].factorize()
-                df_full[col] = codes.astype('int32')
-                category_mappings[col] = uniques.tolist()
+        # If df_common is empty, we can't split anything.
+        if df_common.empty:
+             print("Warning: All classes are considered rare. Moving everything to train.")
+             df_train = df_full.copy()
+             df_val = df_full.iloc[:0].copy()
+             df_test = df_full.iloc[:0].copy()
+             split_successful = True
+             break
 
         try:
-            # Assign mutually exclusive train/val/test subsets
-            df_full = assign_subsets(df_full, "label", train_frac=0.6, val_frac=0.2, test_frac=0.2, random_state=random_state)
-            split_ok = True  # If it succeeds, exit loop
+            # B. Try Split 1: Train (60%) vs Temp (40%)
+            train_common, temp_common = train_test_split(
+                df_common, 
+                test_size=0.4, 
+                stratify=df_common[target_column], 
+                random_state=random_state
+            )
+            
+            # C. Try Split 2: Val (20%) vs Test (20%)
+            val_common, test_common = train_test_split(
+                temp_common, 
+                test_size=0.5, 
+                stratify=temp_common[target_column], 
+                random_state=random_state
+            )
+            
+            # If we reach here, the split worked!
+            split_successful = True
+            
+            if not df_rare.empty:
+                print(f"Stratification successful with rare_threshold={rare_threshold}. "
+                      f"Moved {len(df_rare)} rows (classes < {rare_threshold} samples) to Train.")
+
+            # Reassemble
+            df_train = pd.concat([train_common, df_rare]).reset_index(drop=True)
+            df_val   = val_common.reset_index(drop=True)
+            df_test  = test_common.reset_index(drop=True)
+
         except ValueError as e:
-            print(f"Resampling due to insufficient class representation (min_samples_per_class={min_samples_per_class})...")
-            min_samples_per_class += 1  # Increment dynamically and retry
-        
-        for col, dtype in df_dtypes_backup.items():
-            if col in category_mappings:
-                # Restore category values from factorized codes
-                mapping = dict(enumerate(category_mappings[col]))
-                df_full[col] = df_full[col].map(mapping).astype('category')
-            else:
-                # Restore other dtypes (numeric, bool, etc.)
-                df_full[col] = df_full[col].astype(dtype)
+            # Sklearn error: "The least populated class... has only X members"
+            # We increment the threshold so that specific class gets moved to 'df_rare' next time.
+            rare_threshold += 1
+            # Safety break to prevent infinite loops (though unlikely)
+            if rare_threshold > 50:
+                raise RuntimeError("Could not split dataset even with rare_threshold=50. Dataset might be too small or imbalanced.") from e
 
-    print(f"Minimal oversampling completed successfully (min_samples_per_class={min_samples_per_class}).")
-
-    df_full[target_column].value_counts()
-
-    # Ignore helper cols when comparing dtypes
-    df_dtypes_after = (
-        df_full
-        .drop(columns=["subset", "_ROW_ID"], errors="ignore")
-        .dtypes.copy(deep=True)
-        .sort_index()
+    # ---------------------------------------------------------
+    # 3. Oversample ONLY Training Data
+    # ---------------------------------------------------------
+    print(f"Oversampling Training set (target min_samples={min_samples_per_class})...")
+    df_train = ensure_min_samples_per_class(
+        df_train, 
+        target_column, 
+        min_samples_per_class, 
+        random_state
     )
+    
+    # ---------------------------------------------------------
+    # 4. Dtype Restoration, Cleanup & Shuffling
+    # ---------------------------------------------------------
+    def restore_types(df, ref_dtypes):
+        for col, dtype in ref_dtypes.items():
+            if col in df.columns:
+                df[col] = df[col].astype(dtype)
+        return df
 
-    assert df_dtypes_before.equals(df_dtypes_after), "Dtype mismatch after assigning subsets"
+    df_train = restore_types(df_train, df_dtypes_before)
+    df_val   = restore_types(df_val, df_dtypes_before)
+    df_test  = restore_types(df_test, df_dtypes_before)
 
-    df_train = df_full[df_full["subset"] == "train"].drop(columns=["subset"])
-    df_val = df_full[df_full["subset"] == "val"].drop(columns=["subset"])
-    df_test = df_full[df_full["subset"] == "test"].drop(columns=["subset"])
+    # Mix the rare classes and oversampled duplicates into the general population
+    df_train = df_train.sample(frac=1, random_state=random_state).reset_index(drop=True)
+    df_val   = df_val.sample(frac=1, random_state=random_state).reset_index(drop=True)
+    df_test  = df_test.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
     return df_train, df_val, df_test
 
