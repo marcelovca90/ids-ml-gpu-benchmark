@@ -20,7 +20,7 @@ from modules.preprocessing.splitting import (
     sample_train_subset, train_val_test_split_fn
 )
 from modules.preprocessing.preproc_utils import NumpyEncoder
-from modules.profiling.resources_v2 import ResourceMonitor
+from modules.profiling.resources import ResourceMonitor
 
 class BasePreprocessingPipeline(ABC):
 
@@ -1234,7 +1234,7 @@ class BasePreprocessingPipeline(ABC):
     ) -> Self:
 
         # 1. Start Monitoring (Non-blocking)
-        monitor = ResourceMonitor()
+        monitor = ResourceMonitor(interval=0.1)
         monitor.start()
 
         # 2. Run Execution Logic (Flat)
@@ -1257,6 +1257,8 @@ class BasePreprocessingPipeline(ABC):
             self.rule_based_handle_object_columns(handle_obj_mode)
             self.drop_na_duplicates()
             
+            monitor.checkpoint("loading_and_cleaning")
+
             # b. Split into FULL universe
             self.train_val_test_split()
             self.drop_high_unique_columns() 
@@ -1274,16 +1276,22 @@ class BasePreprocessingPipeline(ABC):
             # d. Drop ID immediately after checking disjointness
             self.drop_row_id(target_universes=target)
 
+            monitor.checkpoint("splitting")
+
             # e. Process Targets (FULL, plus SAMPLED if applicable)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
             self.shrink_numeric_dtypes(shrink_num_mode, target_universes=target)
             self.clean_and_sort_columns(target_universes=target)
             self.reset_index(target_universes=target)
+
+            monitor.checkpoint("transformation")
             
             # f. Profile & Save
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
+
+            monitor.checkpoint("profiling")
 
         else:
             log_print(f"--- PIPELINE MODE: SAMPLED (frac={self.sample_frac}) ---")
@@ -1301,25 +1309,31 @@ class BasePreprocessingPipeline(ABC):
             # d. Drop ID immediately after checking disjointness
             self.drop_row_id(target_universes=target)
 
+            monitor.checkpoint("loading_and_sampling")
+
             # e. Process Targets (SAMPLED only)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
             self.shrink_numeric_dtypes(shrink_num_mode, target_universes=target)
             self.clean_and_sort_columns(target_universes=target)
             self.reset_index(target_universes=target)
+
+            monitor.checkpoint("transformation")
             
             # f. Profile & Save SAMPLED
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
 
+            monitor.checkpoint("profiling")
+
         # 3. Stop Monitoring
-        monitor.stop()
+        execution_stats = monitor.stop()
         
         # 4. Inject Profiling Stats
         for u_name in target:
             key = self._get_universe_definition(u_name)['metadata_key']
             if key in self.metadata:
-                self.metadata[key]['execution_stats'] = monitor.stats
+                self.metadata[key]['execution_stats'] = execution_stats
 
         # 4. Save
         self.save(target_universes=target)
