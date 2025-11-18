@@ -7,7 +7,7 @@ import pandas as pd
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
-from modules.preprocessing.utils import _replace_values
+from modules.preprocessing.preproc_utils import _replace_values
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -71,4 +71,4 @@ class MQTT_IoT_IDS2020_PacketFeatures(BasePreprocessingPipeline):
             df = pd.read_parquet(full_filename)
             data_frames.append(df)
             log_print(f'Loaded parquet file \'{base_filename}\'.')
-        self.data = pd.concat(data_frames, copy=False).sample(100_000)
+        self.data = pd.concat(data_frames, copy=False)

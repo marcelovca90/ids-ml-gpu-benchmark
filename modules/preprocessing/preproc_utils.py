@@ -1,38 +1,35 @@
 import json
-import numbers
-import os
 import re
 import sys
-from collections import OrderedDict
 from datetime import datetime
-from operator import getitem
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import psutil
-# from featurewiz import FeatureWiz
-from imblearn.combine import SMOTETomek
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import InstanceHardnessThreshold, TomekLinks
 from pytictoc import TicToc
-from scipy import stats
-from sklearn.decomposition import PCA, IncrementalPCA
-from sklearn.feature_selection import RFECV, VarianceThreshold
-from sklearn.linear_model import Ridge
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
-from sklearn.tree import ExtraTreeClassifier
+
+from modules.logging.logger import log_event
 
 sys.path.append(Path(__file__).absolute().parent.parent)
-
-from modules.logging.logger import log_print
-from modules.logging.webhook import post_disc
 
 t = TicToc()
 JOBS = 4
 SEED = 10
+
+def _clean_and_expand_kmg_suffix(val):
+    if isinstance(val, str):
+        val = re.sub(r'\s', '', val.strip().upper())
+        if val.endswith('%'):
+            try:
+                return str(float(val[:-1]) / 100)
+            except ValueError:
+                return val  # fallback if not a valid float
+        elif val.endswith('K'):
+            return val[:-1] + '000'
+        elif val.endswith('M'):
+            return val[:-1] + '000000'
+        elif val.endswith('G'):
+            return val[:-1] + '000000000'
+    return str(val)  # ensure return is string
 
 def _convert_to_int(x):
     try:
@@ -54,7 +51,7 @@ def now():
     ms_part = f'{int(now.microsecond / 1000):03d}'
     return f'{yyyymmdd_hhmmss_part},{ms_part}'
 
-def safe_exec(runnable, msg_prefix, dataset_name, msg_suffix):
+def safe_exec(runnable, msg_prefix="", dataset_name="", msg_suffix=""):
     """
     Wraps execution with standard logging and error handling.
     
@@ -68,30 +65,13 @@ def safe_exec(runnable, msg_prefix, dataset_name, msg_suffix):
         bool: True if successful, False if an exception occurred.
     """
 
-    def _log_event(prefix, dataset_name, suffix, stage):
-        """
-        Unified logging for any pipeline stage.
-        stage ∈ {"start", "finish", "error"}
-        """
-        if stage == "start":
-            msg = f"{prefix} Started {dataset_name} ({suffix})."
-        elif stage == "finish":
-            msg = f"{prefix} Finished {dataset_name} ({suffix})."
-        elif stage == "error":
-            msg = f"{prefix} ERROR in {dataset_name} ({suffix})."
-        else:
-            raise ValueError(f"Unknown logging stage: {stage}")
-
-        log_print(msg)
-        post_disc(msg)
-
     try:
-        _log_event(msg_prefix, dataset_name, msg_suffix, "start")
+        log_event(msg_prefix, dataset_name, msg_suffix, "start")
         runnable()
-        _log_event(msg_prefix, dataset_name, msg_suffix, "finish")
+        log_event(msg_prefix, dataset_name, msg_suffix, "finish")
         return True
     except Exception as e:
-        _log_event(msg_prefix, dataset_name, f"{msg_suffix} — {e}", "error")
+        log_event(msg_prefix, dataset_name, f"{msg_suffix} — {e}", "error")
         exit()
         return False
 

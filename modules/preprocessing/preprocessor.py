@@ -19,7 +19,7 @@ from modules.preprocessing.stats import (
 from modules.preprocessing.splitting import (
     sample_train_subset, train_val_test_split_fn
 )
-from modules.preprocessing.utils import NumpyEncoder
+from modules.preprocessing.preproc_utils import NumpyEncoder
 
 class BasePreprocessingPipeline(ABC):
 
@@ -1063,6 +1063,27 @@ class BasePreprocessingPipeline(ABC):
             )
 
     @function_call_logger
+    def drop_row_id(self, target_universes: list = None) -> None:
+        """
+        Removes the _ROW_ID helper column from all subsets in the target universes.
+        Should be called immediately after assert_disjoint_subsets().
+        """
+        if target_universes is None:
+            target_universes = ["FULL", "SAMPLED"]
+
+        for u_name in target_universes:
+            u_def = self._get_universe_definition(u_name)
+            
+            for split_key in ['train', 'val', 'test']:
+                df_attr = u_def[split_key]
+                if hasattr(self, df_attr):
+                    df = getattr(self, df_attr)
+                    if "_ROW_ID" in df.columns:
+                        df = df.drop(columns=["_ROW_ID"])
+                        setattr(self, df_attr, df)
+                        log_print(f"[{u_name}] Dropped _ROW_ID from {split_key}.")
+
+    @function_call_logger
     def reset_index(self, target_universes: list = None) -> None:
         if target_universes is None:
             target_universes = ["FULL", "SAMPLED"]
@@ -1107,6 +1128,12 @@ class BasePreprocessingPipeline(ABC):
 
             # Gather dict for this universe
             meta_dict = {
+                "folder": self.folder,
+                "name": self.name,
+                "target": self.target,
+                "sample_frac": self.sample_frac,
+                "seed": self.seed,
+                "binarize": self.binarize,
                 "columns": getattr(self, u_def['train']).columns.tolist(),
                 "dtypes": getattr(self, u_def['train']).dtypes.apply(str).to_dict(),
                 "description": getattr(self, u_def['train']).describe(include="all").to_dict(),
@@ -1172,8 +1199,8 @@ class BasePreprocessingPipeline(ABC):
         if "SAMPLED" in target_universes and hasattr(self, "df_train_sampled"):
             # Only save sampled if it's actually a subset (frac != 1.0)
             if self.sample_frac != 1.0:
-                sample_frac_int = f"{int(100 * self.sample_frac):02}"
-                sampled_dir = os.path.join(base_dir, f"sampled_{sample_frac_int}")
+                sample_frac_str = f"{int(100 * self.sample_frac):02}"
+                sampled_dir = os.path.join(base_dir, f"sampled_{sample_frac_str}")
                 self._save_universe_artifacts("SAMPLED", sampled_dir, fname)
 
     @function_call_logger
@@ -1221,6 +1248,9 @@ class BasePreprocessingPipeline(ABC):
                 self.assert_disjoint_subsets()
                 target.append("SAMPLED")
 
+            # Drop ID immediately after checking disjointness
+            self.drop_row_id(target_universes=target)
+
             # 4. Process Targets (FULL, plus SAMPLED if applicable)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
@@ -1240,7 +1270,7 @@ class BasePreprocessingPipeline(ABC):
             log_print(f"--- PIPELINE MODE: SAMPLED (frac={self.sample_frac}) ---")
             
             # 1. Load the already-processed FULL universe
-            self.preload() 
+            self.preload()
             
             # 2. Create the Sampled Universe (Derived from Full)
             self.sample_train_subset()
@@ -1249,13 +1279,17 @@ class BasePreprocessingPipeline(ABC):
             # 3. Process SAMPLED Universe ONLY
             target = ["SAMPLED"]
             
+            # 4. Drop ID immediately after checking disjointness
+            self.drop_row_id(target_universes=target)
+
+            # 5. Process Targets (SAMPLED only)
             self.data_driven_discretize_hc_numeric_columns(handle_num_mode, target_universes=target)
             self.data_driven_handle_object_columns(handle_obj_mode, target_universes=target)
             self.shrink_numeric_dtypes(shrink_num_mode, target_universes=target)
             self.clean_and_sort_columns(target_universes=target)
             self.reset_index(target_universes=target)
             
-            # 4. Profile & Save SAMPLED
+            # 6. Profile & Save SAMPLED
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
             self.save(target_universes=target)

@@ -2,6 +2,10 @@ import os
 import sys
 import warnings
 from pathlib import Path
+from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -10,18 +14,17 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-import numpy as np
-import pandas as pd
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from tqdm import tqdm
 
 class NIDS(BasePreprocessingPipeline):
 
-    def __init__(self, csv_filename=None, binarize=False) -> None:
+    def __init__(self, sample_frac, seed, binarize, csv_filename=None) -> None:
         super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'NIDS')
         self.base_name = 'NIDS'
@@ -74,8 +77,7 @@ class NIDS(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/nids.py
 if __name__ == "__main__":
 
-    binarize_flags = [False]
-
+    # List of Paths to source CSVs
     csv_filenames_data = [
         Path('datasets/NIDS/source/CIC-BoT-IoT/a27809afa6caa7e0_MOHANAD_A4706/data/CIC-BoT-IoT.csv'),
         Path('datasets/NIDS/source/CIC-ToN-IoT/a40a412453292fe6_MOHANAD_A4706/data/CIC-ToN-IoT.csv'),
@@ -95,25 +97,71 @@ if __name__ == "__main__":
         Path('datasets/NIDS/source/NF-USNW-NB15/88695f0f620eb568_MOHANAD_A4706/data/NF-UNSW-NB15.csv')
     ]
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
+    # Calculate total steps for progress bar prefix
+    total_steps = len(BINARIZE_FLAGS) * len(csv_filenames_data)
 
-        for j, csv_filename in enumerate(tqdm(csv_filenames_data, desc="NIDS_CSV", leave=False)):
+    # 1. Loop Configuration (Binarize)
+    for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
 
-            try:
+        # 2. Loop Datasets (CSV Paths)
+        for j, csv_path in enumerate(tqdm(csv_filenames_data, desc="NIDS_CSV", leave=False)):
+            
+            # Construct readable ID and progress prefix
+            step_idx = (i * len(csv_filenames_data)) + j + 1
+            msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
+            
+            # Use .stem to get filename without extension (e.g., 'NF-UQ-NIDS')
+            dataset_identifier = f"NIDS/{csv_path.stem}"
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(csv_filenames_data):02}]"
+            # 3. Loop Seeds (Randomness)
+            for seed in tqdm(SEEDS, desc='Seed', leave=False):
 
-                log_print(f'{msg_prefix} Started processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
+                # ==================================================
+                # A. FULL RUN (Generator)
+                # ==================================================
+                suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
 
-                nids = NIDS(csv_filename=csv_filename, binarize=binarize_flag)
+                success = safe_exec(
+                    runnable=lambda: NIDS(
+                        csv_filename=csv_path,
+                        sample_frac=1.0,
+                        seed=seed,
+                        binarize=binarize_flag
+                    ).pipeline(preload=False),
+                    msg_prefix=msg_prefix,
+                    dataset_name=dataset_identifier,
+                    msg_suffix=suffix_full
+                )
 
-                nids.pipeline()
+                # If Full run fails, skip sampled runs for this seed
+                if not success:
+                    continue
 
-                log_print(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing NIDS/{csv_filename.stem} (binarize={binarize_flag}).')
+                # ==================================================
+                # B. SAMPLED RUNS (Consumers)
+                # ==================================================
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+                    if sample_frac == 1.0: 
+                        continue 
 
-            except Exception as e:
+                    suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                log_print(f'{msg_prefix} Error processing NIDS/{csv_filename.stem} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'{msg_prefix} Error processing NIDS/{csv_filename.stem} (binarize={binarize_flag}): {str(e)}')
+                    safe_exec(
+                        runnable=lambda: NIDS(
+                            csv_filename=csv_path,
+                            sample_frac=sample_frac,
+                            seed=seed,
+                            binarize=binarize_flag
+                        ).pipeline(preload=True),
+                        msg_prefix=msg_prefix,
+                        dataset_name=dataset_identifier,
+                        msg_suffix=suffix_sampled
+                    )
+
+    # 4. Final Cleanup
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="NIDS",
+        msg_suffix="Copying Files"
+    )

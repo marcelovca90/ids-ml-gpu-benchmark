@@ -2,6 +2,10 @@ import os
 import sys
 import warnings
 from pathlib import Path
+from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -10,18 +14,17 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-import numpy as np
-import pandas as pd
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from tqdm import tqdm
 
 class EDGE_IIOTSET(BasePreprocessingPipeline):
 
-    def __init__(self, csv_filename=None, binarize=False) -> None:
+    def __init__(self, sample_frac, seed, binarize, csv_filename=None) -> None:
         super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'EDGE-IIOTSET')
         self.base_name = 'EDGE-IIOTSET'
@@ -73,34 +76,75 @@ class EDGE_IIOTSET(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/edge_iiotset.py
 if __name__ == "__main__":
 
-    binarize_flags = [False]
-
     csv_filenames = [
         "ML-EdgeIIoT-dataset.csv",
         "DNN-EdgeIIoT-dataset.csv"
     ]
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
+    # Calculate total steps for progress bar prefix
+    total_steps = len(BINARIZE_FLAGS) * len(csv_filenames)
 
+    # 1. Loop Configuration (Binarize)
+    for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
+
+        # 2. Loop Datasets (CSV Files)
         for j, csv_filename in enumerate(tqdm(csv_filenames, desc="EDGE_IIOTSET_CSV", leave=False)):
 
-            try:
+            # Construct readable ID and progress prefix
+            step_idx = (i * len(csv_filenames)) + j + 1
+            msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
+            
+            dataset_identifier = f"EDGE_IIOTSET/{csv_filename}"
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(csv_filenames):02}]"
+            # 3. Loop Seeds (Randomness)
+            for seed in tqdm(SEEDS, desc='Seed', leave=False):
 
-                log_print(f'{msg_prefix} Started processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')
+                # ==================================================
+                # A. FULL RUN (Generator)
+                # ==================================================
+                suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
 
-                subfolder_path = os.path.join('datasets/EDGE_IIOTSET/source', csv_filename)
+                success = safe_exec(
+                    runnable=lambda: EDGE_IIOTSET(
+                        csv_filename=csv_filename,
+                        sample_frac=1.0,
+                        seed=seed,
+                        binarize=binarize_flag
+                    ).pipeline(preload=False),
+                    msg_prefix=msg_prefix,
+                    dataset_name=dataset_identifier,
+                    msg_suffix=suffix_full
+                )
 
-                edge_iiotset = EDGE_IIOTSET(csv_filename=csv_filename, binarize=binarize_flag)
+                # If Full run fails (e.g. missing CSV), skip sampled runs for this seed
+                if not success:
+                    continue
 
-                edge_iiotset.pipeline()
+                # ==================================================
+                # B. SAMPLED RUNS (Consumers)
+                # ==================================================
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+                    if sample_frac == 1.0: 
+                        continue 
 
-                log_print(f'{msg_prefix} Finished processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}).')
+                    suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-            except Exception as e:
+                    safe_exec(
+                        runnable=lambda: EDGE_IIOTSET(
+                            csv_filename=csv_filename,
+                            sample_frac=sample_frac,
+                            seed=seed,
+                            binarize=binarize_flag
+                        ).pipeline(preload=True),
+                        msg_prefix=msg_prefix,
+                        dataset_name=dataset_identifier,
+                        msg_suffix=suffix_sampled
+                    )
 
-                log_print(f'{msg_prefix} Error processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'{msg_prefix} Error processing EDGE_IIOTSET/{csv_filename} (binarize={binarize_flag}): {str(e)}')
+    # 4. Final Cleanup
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="EDGE_IIOTSET",
+        msg_suffix="Copying Files"
+    )

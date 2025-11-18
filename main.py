@@ -1,6 +1,10 @@
 
 from tqdm import tqdm
 
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
+
 from modules.preprocessing.custom.bot_iot_macro import BoT_IoT_Macro
 from modules.preprocessing.custom.bot_iot_micro import BoT_IoT_Micro
 from modules.preprocessing.custom.cic_ids_2017 import CIC_IDS_2017
@@ -23,12 +27,9 @@ from modules.preprocessing.custom.CICIoMT2024_Bluetooth import \
 from modules.preprocessing.custom.CICIoMT2024_WiFi_and_MQTT import \
     CICIoMT2024_WiFi_and_MQTT
 from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
-from modules.preprocessing.utils import safe_exec
 
 # PYTHONPATH=. python main.py
 if __name__ == "__main__":
-
-    binarize_flags = [False]
 
     dataset_classes = [
         # BoT_IoT_Macro,
@@ -47,10 +48,6 @@ if __name__ == "__main__":
         # UNSW_NB15
     ]
 
-    sample_fracs = [1.0, 0.2, 0.1, 0.05]
-
-    seeds = [17, 23, 37, 53, 89]
-    
     # independent datasets (must be run separately):
     # - BCCC
     # - CICAPT_IIoT
@@ -71,17 +68,17 @@ if __name__ == "__main__":
     # PYTHONPATH=. python modules/preprocessing/custom/n_baiot.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/nids.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
-    # PYTHONPATH=. python move_files.py ; \
+    # PYTHONPATH=. python modules/filesystem/utils.py ; \
     # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
 
     for d, dataset_cls in enumerate(tqdm(dataset_classes, desc='Dataset', leave=False)):
 
         msg_prefix = f"[{d+1:02}/{len(dataset_classes):02}]"
-        name = dataset_cls.__name__
+        ds_name = dataset_cls.__name__
 
-        for b, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
+        for b, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc='Binarize', leave=False)):
 
-            for s, seed in enumerate(tqdm(seeds, desc='Seed', leave=False)):
+            for s, seed in enumerate(tqdm(SEEDS, desc='Seed', leave=False)):
 
                 # --- 1. Full Run (frac == 1.0) ---
                 # We run this first to generate the base artifacts.
@@ -90,7 +87,7 @@ if __name__ == "__main__":
                 success = safe_exec(
                     runnable=lambda: dataset_cls(sample_frac=1.0, seed=seed, binarize=binarize_flag).pipeline(preload=False),
                     msg_prefix=msg_prefix,
-                    dataset_name=name,
+                    dataset_name=ds_name,
                     msg_suffix=suffix_full
                 )
 
@@ -100,7 +97,7 @@ if __name__ == "__main__":
                     continue
 
                 # --- 2. Sampled Runs (frac < 1.0) ---
-                for sample_frac in tqdm(sample_fracs, desc='Fraction', leave=False):
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
                     if sample_frac == 1.0:
                         continue # Already done in step 1
 
@@ -109,6 +106,14 @@ if __name__ == "__main__":
                     safe_exec(
                         runnable=lambda: dataset_cls(sample_frac=sample_frac, seed=seed, binarize=binarize_flag).pipeline(preload=True),
                         msg_prefix=msg_prefix,
-                        dataset_name=name,
+                        dataset_name=ds_name,
                         msg_suffix=suffix_sampled
                     )
+    
+    # 3; Final Cleanup / Organization
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="Main",
+        msg_suffix="Copying Files"
+    )

@@ -9,7 +9,7 @@ import pandas as pd
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from modules.preprocessing.utils import _replace_values
+from modules.preprocessing.preproc_utils import _replace_values
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -45,7 +45,7 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         base_filename = os.path.join(work_folder, f'{self.name}.parquet')
         log_print(f'Loading parquet file \'{base_filename}\'.')
         full_filename = os.path.join(work_folder, base_filename)
-        self.data = pd.read_parquet(full_filename).sample(100_000)
+        self.data = pd.read_parquet(full_filename)
         log_print(f'Loaded parquet file \'{base_filename}\'.')
 
     @function_call_logger

@@ -2,6 +2,10 @@ import os
 import sys
 import warnings
 from pathlib import Path
+from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -10,18 +14,17 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-import numpy as np
-import pandas as pd
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from tqdm import tqdm
 
 class BCCC(BasePreprocessingPipeline):
 
-    def __init__(self, subfolder=None, binarize=False) -> None:
+    def __init__(self, sample_frac, seed, binarize, subfolder=None) -> None:
         super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'BCCC')
         self.base_name = 'BCCC'
@@ -73,10 +76,8 @@ class BCCC(BasePreprocessingPipeline):
         log_print('Value counts after sanitization:')
         log_value_counts(self.data, self.target)
 
-# PYTHONPATH=. python modules/preprocessing/custom/bccc.py
+ # PYTHONPATH=. python modules/preprocessing/custom/bccc.py 
 if __name__ == "__main__":
-
-    binarize_flags = [False]
 
     subfolders = [
         'CIC-BCCC-NRC-ACI-IOT-2023',
@@ -90,27 +91,74 @@ if __name__ == "__main__":
         'CIC-BCCC-NRC-UQ-IOT-2022'
     ]
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
+    # For progress bar calculation
+    total_steps = len(BINARIZE_FLAGS) * len(subfolders)
+    
+    # 1. Loop Configuration (Binarize)
+    for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
+        
+        # 2. Loop Datasets (Subfolders)
+        for j, subfolder in enumerate(tqdm(subfolders, desc="BCCC_Subfolder", leave=False)):
+            
+            # Construct a readable ID for logs
+            step_idx = (i * len(subfolders)) + j + 1
+            msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
+            dataset_identifier = f"BCCC/{subfolder}"
 
-        for j, subfolder in enumerate(tqdm(subfolders, desc="BCCC_CSV", leave=False)):
+            # 3. Loop Seeds (Randomness)
+            for seed in tqdm(SEEDS, desc='Seed', leave=False):
+                
+                # ==================================================
+                # A. FULL RUN (Generator)
+                # ==================================================
+                # Must run first with sample_frac=1.0 and preload=False
+                # to generate the base artifacts (cleaning, splitting, ID creation).
+                suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
+                
+                success = safe_exec(
+                    runnable=lambda: BCCC(
+                        subfolder=subfolder, 
+                        sample_frac=1.0, 
+                        seed=seed, 
+                        binarize=binarize_flag
+                    ).pipeline(preload=False),
+                    msg_prefix=msg_prefix,
+                    dataset_name=dataset_identifier,
+                    msg_suffix=suffix_full
+                )
 
-            try:
+                # Critical Safety Check:
+                # If the Full run fails (missing raw CSV, etc.), 
+                # we MUST skip sampled runs for this seed as they have nothing to load.
+                if not success:
+                    continue
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(subfolders):02}]"
+                # ==================================================
+                # B. SAMPLED RUNS (Consumers)
+                # ==================================================
+                # Iterate through fractions, skip 1.0 (done above), and use preload=True
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+                    if sample_frac == 1.0: 
+                        continue 
 
-                log_print(f'{msg_prefix} Started processing BCCC/{subfolder} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing BCCC/{subfolder} (binarize={binarize_flag}).')
+                    suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                subfolder_path = os.path.join('datasets/BCCC/source', subfolder)
+                    safe_exec(
+                        runnable=lambda: BCCC(
+                            subfolder=subfolder, 
+                            sample_frac=sample_frac, 
+                            seed=seed, 
+                            binarize=binarize_flag
+                        ).pipeline(preload=True),
+                        msg_prefix=msg_prefix,
+                        dataset_name=dataset_identifier,
+                        msg_suffix=suffix_sampled
+                    )
 
-                bccc = BCCC(subfolder=subfolder, binarize=binarize_flag)
-
-                bccc.pipeline()
-
-                log_print(f'{msg_prefix} Finished processing BCCC/{subfolder} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing BCCC/{subfolder} (binarize={binarize_flag}).')
-
-            except Exception as e:
-
-                log_print(f'{msg_prefix} Error processing BCCC/{subfolder} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'{msg_prefix} Error processing BCCC/{subfolder} (binarize={binarize_flag}): {str(e)}')
+    # 4. Final Cleanup / Organization
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="BCCC",
+        msg_suffix="Copying Files"
+    )

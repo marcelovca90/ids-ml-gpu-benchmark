@@ -1,0 +1,5 @@
+BINARIZE_FLAGS = [False]
+
+SAMPLE_FRACS = [1.0, 0.2, 0.1, 0.05]
+
+SEEDS = [17, 23, 37, 53, 89]

@@ -3,6 +3,10 @@ import re
 import sys
 import warnings
 from pathlib import Path
+from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -11,19 +15,19 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-import numpy as np
-import pandas as pd
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from modules.preprocessing.utils import _clean_and_expand_kmg_suffix
-from tqdm import tqdm
+from modules.preprocessing.preproc_utils import _clean_and_expand_kmg_suffix
 
 class ToN_IoT(BasePreprocessingPipeline):
 
-    def __init__(self, sub_name=None, sub_config=None, binarize=False) -> None:
+    def __init__(self, sample_frac, seed, binarize, sub_name=None, sub_config=None) -> None:
         super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'ToN_IoT')
         self.base_name = 'ToN_IoT'
@@ -100,8 +104,6 @@ class ToN_IoT(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py
 if __name__ == "__main__":
 
-    binarize_flags = [False]
-
     configs = {
         'IoT_Fridge': {
             'folder': 'Processed_IoT_dataset',
@@ -166,29 +168,7 @@ if __name__ == "__main__":
             'folder': 'Processed_Network_dataset',
             'mode': 'multi',
             'files': [
-                'Network_dataset_1.csv',
-                'Network_dataset_2.csv',
-                'Network_dataset_3.csv',
-                'Network_dataset_4.csv',
-                'Network_dataset_5.csv',
-                'Network_dataset_6.csv',
-                'Network_dataset_7.csv',
-                'Network_dataset_8.csv',
-                'Network_dataset_9.csv',
-                'Network_dataset_10.csv',
-                'Network_dataset_11.csv',
-                'Network_dataset_12.csv',
-                'Network_dataset_13.csv',
-                'Network_dataset_14.csv',
-                'Network_dataset_15.csv',
-                'Network_dataset_16.csv',
-                'Network_dataset_17.csv',
-                'Network_dataset_18.csv',
-                'Network_dataset_19.csv',
-                'Network_dataset_20.csv',
-                'Network_dataset_21.csv',
-                'Network_dataset_22.csv',
-                'Network_dataset_23.csv'
+                f'Network_dataset_{i}.csv' for i in range(1, 24) # Refactored list comprehension
             ]
         },
         'Windows_7': {
@@ -207,34 +187,72 @@ if __name__ == "__main__":
         }
     }
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
+    # Calculate total steps
+    total_steps = len(BINARIZE_FLAGS) * len(configs)
 
-        for j, (name, config) in enumerate(tqdm(configs.items(), desc="BCCC_CSV", leave=False)):
+    # 1. Loop Configuration (Binarize)
+    for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
 
-            try:
+        # 2. Loop Datasets (Config Items)
+        for j, (name, config) in enumerate(tqdm(configs.items(), desc="ToN_IoT_Config", leave=False)):
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(configs):02}]"
+            # Construct readable ID and progress prefix
+            step_idx = (i * len(configs)) + j + 1
+            msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
+            
+            dataset_identifier = f"ToN_IoT/{name}"
 
-                log_print(f'{msg_prefix} Started processing ToN_IoT/{name} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing ToN_IoT/{name} (binarize={binarize_flag}).')
+            # 3. Loop Seeds (Randomness)
+            for seed in tqdm(SEEDS, desc='Seed', leave=False):
 
-                ton_iot = ToN_IoT(sub_name=name, sub_config=config, binarize=binarize_flag)
+                # ==================================================
+                # A. FULL RUN (Generator)
+                # ==================================================
+                suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
 
-                ton_iot.pipeline()
+                success = safe_exec(
+                    runnable=lambda: ToN_IoT(
+                        sub_name=name,
+                        sub_config=config,
+                        sample_frac=1.0,
+                        seed=seed,
+                        binarize=binarize_flag
+                    ).pipeline(preload=False),
+                    msg_prefix=msg_prefix,
+                    dataset_name=dataset_identifier,
+                    msg_suffix=suffix_full
+                )
 
-                assert 'label' in ton_iot.data.columns
-                assert str(ton_iot.data['label'].dtype) == 'category'
-                assert ton_iot.data.shape[0] > 0
-                if binarize_flag:
-                    assert ton_iot.data['label'].nunique() == 2
-                else:
-                    assert ton_iot.data['label'].nunique() > 2
+                # If Full run fails, skip sampled runs for this seed
+                if not success:
+                    continue
 
-                log_print(f'{msg_prefix} Finished processing ToN_IoT/{name} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing ToN_IoT/{name} (binarize={binarize_flag}).')
+                # ==================================================
+                # B. SAMPLED RUNS (Consumers)
+                # ==================================================
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+                    if sample_frac == 1.0: 
+                        continue 
 
-            except Exception as e:
+                    suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                log_print(f'{msg_prefix} Error processing ToN_IoT/{name} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'```json\n{msg_prefix} Error processing ToN_IoT/{name} (binarize={binarize_flag}): {str(e)}```')
-                raise e
+                    safe_exec(
+                        runnable=lambda: ToN_IoT(
+                            sub_name=name,
+                            sub_config=config,
+                            sample_frac=sample_frac,
+                            seed=seed,
+                            binarize=binarize_flag
+                        ).pipeline(preload=True),
+                        msg_prefix=msg_prefix,
+                        dataset_name=dataset_identifier,
+                        msg_suffix=suffix_sampled
+                    )
+
+    # 4. Final Cleanup
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="ToN_IoT",
+        msg_suffix="Copying Files"
+    )

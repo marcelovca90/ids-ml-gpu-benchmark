@@ -2,6 +2,10 @@ import os
 import sys
 import warnings
 from pathlib import Path
+from tqdm import tqdm
+
+import numpy as np
+import pandas as pd
 
 sys.path.append(Path(__file__).absolute().parent.parent)
 
@@ -10,18 +14,17 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-import numpy as np
-import pandas as pd
+from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import safe_exec
+from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
-from modules.logging.webhook import post_disc
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
-from tqdm import tqdm
 
 class N_BaIoT(BasePreprocessingPipeline):
 
-    def __init__(self, subfolder=None, binarize=False) -> None:
+    def __init__(self, sample_frac, seed, binarize, subfolder=None,) -> None:
         super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'N_BaIoT')
         self.base_name = 'N_BaIoT'
@@ -82,8 +85,6 @@ class N_BaIoT(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/n_baiot.py
 if __name__ == "__main__":
 
-    binarize_flags = [False]
-
     subfolders = [
         "Danmini_Doorbell",
         "Ecobee_Thermostat",
@@ -96,27 +97,70 @@ if __name__ == "__main__":
         "SimpleHome_XCS7_1003_WHT_Security_Camera"
     ]
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc="Binarize", leave=False)):
+    # Calculate total steps for progress bar prefix
+    total_steps = len(BINARIZE_FLAGS) * len(subfolders)
 
-        for j, subfolder in enumerate(tqdm(subfolders, desc="N_BaIoT_CSV", leave=False)):
+    # 1. Loop Configuration (Binarize)
+    for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
 
-            try:
+        # 2. Loop Subfolders (Devices)
+        for j, subfolder in enumerate(tqdm(subfolders, desc="N_BaIoT_Device", leave=False)):
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(subfolders):02}]"
+            # Construct readable ID and progress prefix
+            step_idx = (i * len(subfolders)) + j + 1
+            msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
+            
+            dataset_identifier = f"N_BaIoT/{subfolder}"
 
-                log_print(f'{msg_prefix} Started processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
+            # 3. Loop Seeds (Randomness)
+            for seed in tqdm(SEEDS, desc='Seed', leave=False):
 
-                subfolder_path = os.path.join('datasets/N_BaIoT/source', subfolder)
+                # ==================================================
+                # A. FULL RUN (Generator)
+                # ==================================================
+                suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
 
-                nbaiot = N_BaIoT(subfolder=subfolder, binarize=binarize_flag)
+                success = safe_exec(
+                    runnable=lambda: N_BaIoT(
+                        subfolder=subfolder,
+                        sample_frac=1.0,
+                        seed=seed,
+                        binarize=binarize_flag
+                    ).pipeline(preload=False),
+                    msg_prefix=msg_prefix,
+                    dataset_name=dataset_identifier,
+                    msg_suffix=suffix_full
+                )
 
-                nbaiot.pipeline()
+                # If Full run fails, skip sampled runs for this seed
+                if not success:
+                    continue
 
-                log_print(f'{msg_prefix} Finished processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing N_BaIoT/{subfolder} (binarize={binarize_flag}).')
+                # ==================================================
+                # B. SAMPLED RUNS (Consumers)
+                # ==================================================
+                for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+                    if sample_frac == 1.0: 
+                        continue 
 
-            except Exception as e:
+                    suffix_sampled = f"binarize={binarize_flag} sample_frac={sample_frac} seed={seed}"
 
-                log_print(f'{msg_prefix} Error processing N_BaIoT/{subfolder} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'{msg_prefix} Error processing N_BaIoT/{subfolder} (binarize={binarize_flag}): {str(e)}')
+                    safe_exec(
+                        runnable=lambda: N_BaIoT(
+                            subfolder=subfolder,
+                            sample_frac=sample_frac,
+                            seed=seed,
+                            binarize=binarize_flag
+                        ).pipeline(preload=True),
+                        msg_prefix=msg_prefix,
+                        dataset_name=dataset_identifier,
+                        msg_suffix=suffix_sampled
+                    )
+
+    # 4. Final Cleanup
+    safe_exec(
+        runnable=lambda: copy_files(),
+        msg_prefix="[FINAL]",
+        dataset_name="N_BaIoT",
+        msg_suffix="Copying Files"
+    )
