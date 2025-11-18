@@ -16,8 +16,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 class IoT_Network_Intrusion_Micro(BasePreprocessingPipeline):
 
     @function_call_logger
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'iot_network_intrusion')
         self.name = 'IoT_Network_Intrusion_Micro'
         self.target = 'label'

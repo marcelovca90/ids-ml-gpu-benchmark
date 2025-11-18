@@ -15,8 +15,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 
 class KDD_Cup_1999(BasePreprocessingPipeline):
 
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'kdd_cup_1999')
         self.name = 'KDD_Cup_1999'
         self.target = 'label'
@@ -45,7 +45,7 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         base_filename = os.path.join(work_folder, f'{self.name}.parquet')
         log_print(f'Loading parquet file \'{base_filename}\'.')
         full_filename = os.path.join(work_folder, base_filename)
-        self.data = pd.read_parquet(full_filename)
+        self.data = pd.read_parquet(full_filename).sample(100_000)
         log_print(f'Loaded parquet file \'{base_filename}\'.')
 
     @function_call_logger

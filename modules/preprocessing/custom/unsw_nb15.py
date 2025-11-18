@@ -16,8 +16,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 
 class UNSW_NB15(BasePreprocessingPipeline):
 
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'unsw_nb15')
         self.name = 'UNSW_NB15'
         self.target = 'label'

@@ -17,8 +17,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 class CICIoMT2024_WiFi_and_MQTT(BasePreprocessingPipeline):
 
     @function_call_logger
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'CICIoMT2024')
         self.name = 'CICIoMT2024_WiFi_and_MQTT'
         self.target = 'label'

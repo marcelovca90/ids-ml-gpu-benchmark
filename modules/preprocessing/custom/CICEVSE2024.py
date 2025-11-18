@@ -22,7 +22,7 @@ from tqdm import tqdm
 class CICEVSE2024(BasePreprocessingPipeline):
 
     def __init__(self, subfolder=None, mode=None, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'CICEVSE2024')
         self.base_name = 'CICEVSE2024'
         self.subfolder = subfolder

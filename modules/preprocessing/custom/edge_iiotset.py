@@ -22,7 +22,7 @@ from tqdm import tqdm
 class EDGE_IIOTSET(BasePreprocessingPipeline):
 
     def __init__(self, csv_filename=None, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'EDGE-IIOTSET')
         self.base_name = 'EDGE-IIOTSET'
         self.csv_filename = csv_filename

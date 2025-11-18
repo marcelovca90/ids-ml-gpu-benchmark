@@ -14,8 +14,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 
 class CIC_IOT_Dataset2023(BasePreprocessingPipeline):
 
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'CIC_IOT_Dataset2023')
         self.name = 'CIC_IOT_Dataset2023'
         self.target = 'label'

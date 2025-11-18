@@ -22,7 +22,7 @@ from tqdm import tqdm
 class CICAPT_IIoT(BasePreprocessingPipeline):
 
     def __init__(self, subfolder=None, subfile=None, mode=None, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'CICAPT_IIoT')
         self.base_name = 'CICAPT_IIoT'
         self.subfolder = subfolder

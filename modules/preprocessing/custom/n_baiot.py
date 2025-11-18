@@ -22,7 +22,7 @@ from tqdm import tqdm
 class N_BaIoT(BasePreprocessingPipeline):
 
     def __init__(self, subfolder=None, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'N_BaIoT')
         self.base_name = 'N_BaIoT'
         self.subfolder = subfolder

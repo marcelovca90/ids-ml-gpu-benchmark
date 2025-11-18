@@ -24,7 +24,7 @@ from tqdm import tqdm
 class ToN_IoT(BasePreprocessingPipeline):
 
     def __init__(self, sub_name=None, sub_config=None, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.base_folder = os.path.join('datasets', 'ToN_IoT')
         self.base_name = 'ToN_IoT'
         self.sub_name = sub_name

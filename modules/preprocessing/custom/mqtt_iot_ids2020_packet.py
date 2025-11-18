@@ -13,8 +13,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 
 class MQTT_IoT_IDS2020_PacketFeatures(BasePreprocessingPipeline):
 
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'mqtt_iot_ids2020')
         self.name = 'MQTT_IoT_IDS2020_PacketFeatures'
         self.target = 'label'
@@ -71,4 +71,4 @@ class MQTT_IoT_IDS2020_PacketFeatures(BasePreprocessingPipeline):
             df = pd.read_parquet(full_filename)
             data_frames.append(df)
             log_print(f'Loaded parquet file \'{base_filename}\'.')
-        self.data = pd.concat(data_frames, copy=False)
+        self.data = pd.concat(data_frames, copy=False).sample(100_000)

@@ -26,27 +26,48 @@ from modules.preprocessing.custom.CICIoMT2024_WiFi_and_MQTT import \
     CICIoMT2024_WiFi_and_MQTT
 from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 
+def _log_event(prefix, dataset_name, suffix, stage):
+    """
+    Unified logging for any pipeline stage.
+    stage ∈ {"start", "finish", "error"}
+    """
+    if stage == "start":
+        msg = f"{prefix} Started {dataset_name} ({suffix})."
+    elif stage == "finish":
+        msg = f"{prefix} Finished {dataset_name} ({suffix})."
+    elif stage == "error":
+        msg = f"{prefix} ERROR in {dataset_name} ({suffix})."
+    else:
+        raise ValueError(f"Unknown logging stage: {stage}")
+
+    log_print(msg)
+    post_disc(msg)
+
 # PYTHONPATH=. python main.py
 if __name__ == "__main__":
 
     binarize_flags = [False]
 
     dataset_classes = [
-        BoT_IoT_Macro,
-        BoT_IoT_Micro,
-        CIC_IDS_2017,
-        CICIoMT2024_Bluetooth,
-        CICIoMT2024_WiFi_and_MQTT,
-        CIC_IOT_Dataset2023,
-        IoT_23,
-        IoT_Network_Intrusion_Macro,
-        IoT_Network_Intrusion_Micro,
+        # BoT_IoT_Macro,
+        # BoT_IoT_Micro,
+        # CIC_IDS_2017,
+        # CICIoMT2024_Bluetooth,
+        # CICIoMT2024_WiFi_and_MQTT,
+        # CIC_IOT_Dataset2023,
+        # IoT_23,
+        # IoT_Network_Intrusion_Macro,
+        # IoT_Network_Intrusion_Micro,
         KDD_Cup_1999,
-        MQTT_IoT_IDS2020_BiflowFeatures,
-        MQTT_IoT_IDS2020_PacketFeatures,
-        MQTT_IoT_IDS2020_UniflowFeatures,
-        UNSW_NB15
+        # MQTT_IoT_IDS2020_BiflowFeatures,
+        # MQTT_IoT_IDS2020_PacketFeatures,
+        # MQTT_IoT_IDS2020_UniflowFeatures,
+        # UNSW_NB15
     ]
+
+    sample_fracs = [1.0, 0.2, 0.1, 0.05]
+
+    seeds = [17, 23, 37, 53, 89]
     
     # independent datasets (must be run separately):
     # - BCCC
@@ -71,23 +92,33 @@ if __name__ == "__main__":
     # PYTHONPATH=. python move_files.py ; \
     # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
 
-    for i, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
+    for d, dataset_cls in enumerate(tqdm(dataset_classes, desc='Dataset', leave=False)):
+        for b, binarize_flag in enumerate(tqdm(binarize_flags, desc='Binarize', leave=False)):
+            for s, seed in enumerate(tqdm(seeds, desc='Seed', leave=False)):
 
-        for j, dataset_cls in enumerate(tqdm(dataset_classes, desc='Dataset', leave=False)):
+                # Full run (always first)
+                sample_frac = 1.0
+                msg_prefix = f"[{d+1:02}/{len(dataset_classes):02}]"
+                msg_suffix = f"b={binarize_flag} f=1.0 s={seed}"
 
-            try:
+                try:
+                    _log_event(msg_prefix, dataset_cls.__name__, msg_suffix, "start")
+                    dataset_cls(sample_frac=1.0, seed=seed, binarize=binarize_flag).pipeline(preload=False)
+                    _log_event(msg_prefix, dataset_cls.__name__, msg_suffix, "finish")
+                except Exception as e:
+                    _log_event(msg_prefix, dataset_cls.__name__, f"{msg_suffix} — {e}", "error")
+                    continue
 
-                msg_prefix = f"[{i+1:02}/{len(binarize_flags):02}] [{j+1:02}/{len(dataset_classes):02}]"
+                # Sampled runs (all other fracs)
+                for sample_frac in tqdm(sample_fracs, desc='Fraction', leave=False):
+                    if sample_frac == 1.0:
+                        continue  # skip; already done
 
-                log_print(f'{msg_prefix} Started processing {dataset_cls.__name__} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Started processing {dataset_cls.__name__} (binarize={binarize_flag}).')
+                    msg_suffix = f"b={binarize_flag} f={sample_frac} s={seed}"
 
-                dataset_cls(binarize=binarize_flag).pipeline()
-
-                log_print(f'{msg_prefix} Finished processing {dataset_cls.__name__} (binarize={binarize_flag}).')
-                post_disc(f'{msg_prefix} Finished processing {dataset_cls.__name__} (binarize={binarize_flag}).')
-
-            except Exception as e:
-
-                log_print(f'{msg_prefix} Error processing {dataset_cls.__name__} (binarize={binarize_flag}): {str(e)}')
-                post_disc(f'{msg_prefix} Error processing {dataset_cls.__name__} (binarize={binarize_flag}): {str(e)}')
+                    try:
+                        _log_event(msg_prefix, dataset_cls.__name__, msg_suffix, "start")
+                        dataset_cls(sample_frac=sample_frac, seed=seed, binarize=binarize_flag).pipeline(preload=True)
+                        _log_event(msg_prefix, dataset_cls.__name__, msg_suffix, "finish")
+                    except Exception as e:
+                        _log_event(msg_prefix, dataset_cls.__name__, f"{msg_suffix} — {e}", "error")

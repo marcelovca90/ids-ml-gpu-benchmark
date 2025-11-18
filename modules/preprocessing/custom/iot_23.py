@@ -13,8 +13,8 @@ sys.path.append(Path(__file__).absolute().parent.parent)
 
 class IoT_23(BasePreprocessingPipeline):
 
-    def __init__(self, binarize=False) -> None:
-        super().__init__(binarize=binarize)
+    def __init__(self, sample_frac, seed, binarize) -> None:
+        super().__init__(sample_frac=sample_frac, seed=seed, binarize=binarize)
         self.folder = os.path.join('datasets', 'iot_23')
         self.name = 'IoT_23'
         self.target = 'label'
