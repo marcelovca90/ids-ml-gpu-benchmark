@@ -45,7 +45,7 @@ class KDD_Cup_1999(BasePreprocessingPipeline):
         base_filename = os.path.join(work_folder, f'{self.name}.parquet')
         log_print(f'Loading parquet file \'{base_filename}\'.')
         full_filename = os.path.join(work_folder, base_filename)
-        self.data = pd.read_parquet(full_filename).sample(100_000)
+        self.data = pd.read_parquet(full_filename)
         log_print(f'Loaded parquet file \'{base_filename}\'.')
 
     @function_call_logger
