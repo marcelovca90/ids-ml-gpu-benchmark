@@ -40,10 +40,13 @@ sudo apt update
 
 sudo apt install git git-lfs libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2
 
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt --fix-broken install
+rm google-chrome-stable_current_amd64.deb
+
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-
 bash Miniconda3-latest-Linux-x86_64.sh
-
 source ~/.bashrc
 
 git lfs install

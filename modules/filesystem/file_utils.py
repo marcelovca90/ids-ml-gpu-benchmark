@@ -3,11 +3,14 @@ import os
 import re
 import shutil
 from pathlib import Path
-
 from pprint import pformat
 from tqdm import tqdm
 
-from modules.logging.logger import log_event
+try:
+    from modules.logging.logger import log_event
+except ImportError:
+    def log_event(**kwargs):
+        print(kwargs)
 
 # PYTHONPATH=. python copy_files.py
 def copy_files():
@@ -27,7 +30,6 @@ def copy_files():
             (src_path.name.lower() == "metadata.json")):
             with open(src_path, mode='r', encoding='utf-8') as fp:
                 metadata = json.load(fp)
-            match = re.search(r'(.*/generated)(.*)', str(src_path))
             src_folder = src_path.parent
             dst_folder_suffix = re.sub(r'.*generated/', '', str(src_folder))
             dst_folder = os.path.join(root_dst_folder, metadata['name'], dst_folder_suffix)
