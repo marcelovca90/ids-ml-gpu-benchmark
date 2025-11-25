@@ -33,31 +33,31 @@ from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 if __name__ == "__main__":
 
     dataset_classes = [
-        # ok # BoT_IoT_Macro,
-        # ok # BoT_IoT_Micro,
-        # ok # CIC_IDS_2017,
-        # ok # CICIoMT2024_Bluetooth,
-        # ok # CICIoMT2024_WiFi_and_MQTT,
-        # ok # CIC_IOT_Dataset2023,
-        # ok # IoT_23,
-        # ok # IoT_Network_Intrusion_Macro,
-        # ok # IoT_Network_Intrusion_Micro,
-        # ok # KDD_Cup_1999,
-        # ok # MQTT_IoT_IDS2020_BiflowFeatures,
-        # ok # MQTT_IoT_IDS2020_PacketFeatures,
-        # ok # MQTT_IoT_IDS2020_UniflowFeatures,
-        # ok # UNSW_NB15
+        BoT_IoT_Macro,
+        BoT_IoT_Micro,
+        CIC_IDS_2017,
+        CICIoMT2024_Bluetooth,
+        CICIoMT2024_WiFi_and_MQTT,
+        CIC_IOT_Dataset2023,
+        IoT_23,
+        IoT_Network_Intrusion_Macro,
+        IoT_Network_Intrusion_Micro,
+        KDD_Cup_1999,
+        MQTT_IoT_IDS2020_BiflowFeatures,
+        MQTT_IoT_IDS2020_PacketFeatures,
+        MQTT_IoT_IDS2020_UniflowFeatures,
+        UNSW_NB15
     ]
 
     # independent datasets (must be run separately):
-    # ok # - BCCC
-    # ok # - CICAPT_IIoT
-    # ok # - CICEVSE2024
-    # ok # - CICIoV2024
-    # ok # - EDGE_IIOTSET
-    # ok # - N_BaIoT
-    # ok # - NIDS
-    # - ToN_IoT
+    # BCCC
+    # CICAPT_IIoT
+    # CICEVSE2024
+    # CICIoV2024
+    # EDGE_IIOTSET
+    # N_BaIoT
+    # NIDS
+    # ToN_IoT
 
     # ~/.bashrc
     # alias regen='PYTHONPATH=. python main.py ; \
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # PYTHONPATH=. python modules/preprocessing/custom/n_baiot.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/nids.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
-    # PYTHONPATH=. python modules/filesystem/utils.py ; \
+    # PYTHONPATH=. python modules/filesystem/file_utils.py ; \
     # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
 
     # For logging

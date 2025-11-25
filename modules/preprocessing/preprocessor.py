@@ -20,7 +20,7 @@ from modules.preprocessing.splitting import (
     sample_train_subset, train_val_test_split_fn
 )
 from modules.preprocessing.preproc_utils import NumpyEncoder
-from modules.profiling.resources import ResourceMonitor
+from modules.evaluation.resource_monitor import ResourceMonitor
 
 class BasePreprocessingPipeline(ABC):
 

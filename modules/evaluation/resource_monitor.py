@@ -11,8 +11,6 @@ except ImportError:
     pynvml_available = False
 
 # Try to import log_print from modules
-# This will not work in Jupyter Notebooks,
-# so it falls back to standard print()
 try:
     from modules.logging.logger import log_print
 except ImportError:
@@ -51,12 +49,14 @@ class ResourceMonitor:
         self.cpu_norm_peak = 0.0  # Max 100%
         self.ram_peak_mb = 0.0
         self.vram_peak_mb = 0.0
+        self.gpu_util_peak = 0.0
 
         # Samples
         self.cpu_raw_samples = []
         self.cpu_norm_samples = []
         self.ram_samples = []
         self.vram_samples = []
+        self.gpu_util_samples = []
 
     def _monitor(self):
         process = psutil.Process(os.getpid())
@@ -67,20 +67,25 @@ class ResourceMonitor:
 
         while not self.stop_event.is_set():
             # 1. Metrics
-            # Raw: Sum of usage across all cores (e.g., 800% on 8 cores)
             raw_cpu = process.cpu_percent(interval=None)
-
-            # Norm: Scaled to 0-100% range
             norm_cpu = raw_cpu / self.cpu_count
 
             mem_info = process.memory_info()
             ram_mb = mem_info.rss / (1024 * 1024)
 
             vram_mb = 0.0
+            gpu_util = 0.0
+            
             if self.gpu_handle:
                 try:
-                    info = pynvml.nvmlDeviceGetMemoryInfo(self.gpu_handle)
-                    vram_mb = info.used / (1024 * 1024)
+                    # Memory Usage
+                    mem_stats = pynvml.nvmlDeviceGetMemoryInfo(self.gpu_handle)
+                    vram_mb = mem_stats.used / (1024 * 1024)
+                    
+                    # Compute Utilization (core load)
+                    # Returns object with .gpu and .memory
+                    util_stats = pynvml.nvmlDeviceGetUtilizationRates(self.gpu_handle)
+                    gpu_util = util_stats.gpu 
                 except:
                     pass
 
@@ -90,11 +95,13 @@ class ResourceMonitor:
                 self.cpu_norm_samples.append(norm_cpu)
                 self.ram_samples.append(ram_mb)
                 self.vram_samples.append(vram_mb)
+                self.gpu_util_samples.append(gpu_util)
 
                 if raw_cpu > self.cpu_raw_peak: self.cpu_raw_peak = round(raw_cpu, 2)
                 if norm_cpu > self.cpu_norm_peak: self.cpu_norm_peak = round(norm_cpu, 2)
                 if ram_mb > self.ram_peak_mb: self.ram_peak_mb = round(ram_mb, 2)
                 if vram_mb > self.vram_peak_mb: self.vram_peak_mb = round(vram_mb, 2)
+                if gpu_util > self.gpu_util_peak: self.gpu_util_peak = round(gpu_util, 2)
 
             time.sleep(self.interval)
 
@@ -107,8 +114,9 @@ class ResourceMonitor:
             cpu_norm_avg = round(sum(self.cpu_norm_samples) / n, 2)
             ram_avg = round(sum(self.ram_samples) / n, 2)
             vram_avg = round(sum(self.vram_samples) / n, 2)
+            gpu_util_avg = round(sum(self.gpu_util_samples) / n, 2)
         else:
-            cpu_raw_avg, cpu_norm_avg, ram_avg, vram_avg = 0.0, 0.0, 0.0, 0.0
+            cpu_raw_avg, cpu_norm_avg, ram_avg, vram_avg, gpu_util_avg = 0.0, 0.0, 0.0, 0.0, 0.0
 
         return {
             "duration_sec": duration,
@@ -119,7 +127,9 @@ class ResourceMonitor:
             "ram_peak_mb": self.ram_peak_mb,
             "ram_avg_mb": ram_avg,
             "vram_peak_mb": self.vram_peak_mb,
-            "vram_avg_mb": vram_avg
+            "vram_avg_mb": vram_avg,
+            "gpu_util_peak": self.gpu_util_peak,
+            "gpu_util_avg": gpu_util_avg
         }
 
     # --- PUBLIC API ---

@@ -26,7 +26,7 @@ def _replace_nan_with_none(obj):
 def copy_files():
 
     root_src_folder = "datasets"
-    root_dst_folder = "2025-11-17/Input"
+    root_dst_folder = "2025-11-17/Input_Zip_v3a"
     candidate_files = list(Path(root_src_folder).rglob("*"))
     copied_files = {}
 
@@ -59,8 +59,8 @@ def copy_files():
 
 def rename_files():
 
-    root_src_folder = "2025-11-17/Input_Zip_v1"
-    root_dst_folder = "2025-11-17/Input_Zip_v2"
+    root_src_folder = "2025-11-17/Input_Zip_v3a"
+    root_dst_folder = "2025-11-17/Input_Zip_v3b"
     metadata_files = list(Path(root_src_folder).rglob("*.json"))
     renamed_files = {}
 
