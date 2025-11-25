@@ -54,7 +54,7 @@ class CICIoV2024(BasePreprocessingPipeline):
             curr_folder_dfs.append(curr_df)
 
         df = pd.concat(curr_folder_dfs)
-        
+
         if self.binarize:
             if self.mode == 'micro':
                 df[self.target] = np.where(df[self.target] == 'BENIGN_BENIGN', 'Benign', 'Malign')
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 # Math: (Current Binarize Block) + (Current Subfolder Block) + (Current Mode)
                 step_idx = (i * len(subfolders) * len(modes)) + (j * len(modes)) + k + 1
                 msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
-                
+
                 dataset_identifier = f"CICIoV2024/{subfolder}/{mode}"
 
                 # 4. Loop Seeds (Randomness)

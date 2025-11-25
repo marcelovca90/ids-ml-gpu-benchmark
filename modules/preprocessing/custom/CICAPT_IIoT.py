@@ -53,7 +53,7 @@ class CICAPT_IIoT(BasePreprocessingPipeline):
         elif self.mode == 'macro':
             df[self.target] = df['subLabelCat'].replace({0: 'benign', '0': 'benign'})
         df = df.drop(columns=['subLabel', 'subLabelCat'], errors='ignore')
-        
+
         if self.binarize:
             df[self.target] = np.where(df[self.target] == 'benign', 'Benign', 'Malign')
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         # {'folder': 'Phase1', 'file': 'phase1_NetworkData.csv'}, # single class
         {'folder': 'Phase2', 'file': 'phase2_NetworkData.csv'},
     ]
-          
+
     modes = ['micro', 'macro']
 
     # Calculate total steps for the progress bar prefix
@@ -107,12 +107,12 @@ if __name__ == "__main__":
 
             # 3. Loop Modes (Dataset Config Part B)
             for k, mode in enumerate(tqdm(modes, desc="Mode", leave=False)):
-                
+
                 # Construct readable ID and progress prefix
                 # Math: (Current Binarize Block) + (Current Subfolder Block) + (Current Mode)
                 step_idx = (i * len(subfolder_and_subfiles) * len(modes)) + (j * len(modes)) + k + 1
                 msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
-                
+
                 dataset_identifier = f"CICAPT/{subfolder}/{mode}"
 
                 # 4. Loop Seeds (Randomness)

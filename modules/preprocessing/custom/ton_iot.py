@@ -46,7 +46,7 @@ class ToN_IoT(BasePreprocessingPipeline):
         # cols_to_drop = ['date', 'time', 'ts', 'PID', 'TRUN', 'src_ip', 'dst_ip',
         #                 'checksum', 'weird_name', 'weird_addl', 'weird_notice', 'label']
         cols_to_drop = ['date', 'time', 'ts', 'src_ip', 'dst_ip', 'label']
-        
+
         if self.sub_config['mode'] == 'single':
             assert len(self.sub_config['files']) == 1
             csv_path = os.path.join(subfolder_path, self.sub_config['files'][0])
@@ -59,7 +59,7 @@ class ToN_IoT(BasePreprocessingPipeline):
             parquet_filename = os.path.join(subfolder_path, f'{self.sub_name}_{self.kind}.parquet')
             self.data.to_parquet(parquet_filename)
             log_print(f'Processed  dataset \'{self.sub_name}\' and saving to parquet.')
-        
+
         elif self.sub_config['mode'] == 'multi':
             assert len(self.sub_config['files']) > 1
             csv_files = [os.path.join(subfolder_path, f) for f in self.sub_config['files']]
@@ -204,7 +204,7 @@ if __name__ == "__main__":
             # Construct readable ID and progress prefix
             step_idx = (i * len(configs)) + j + 1
             msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
-            
+
             dataset_identifier = f"ToN_IoT/{name}"
 
             # 3. Loop Seeds (Randomness)

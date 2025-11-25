@@ -73,14 +73,14 @@ def train_val_test_split_fn(df_full, target_column, min_samples_per_class, rando
     # Start with 3 because you cannot stratify 3-split a single sample.
     rare_threshold = 3
     split_successful = False
-    
+
     df_train, df_val, df_test = None, None, None
 
     while not split_successful:
         # A. Filter rare classes based on current threshold
         class_counts = df_full[target_column].value_counts()
         rare_classes = class_counts[class_counts < rare_threshold].index
-        
+
         df_rare = df_full[df_full[target_column].isin(rare_classes)]
         df_common = df_full[~df_full[target_column].isin(rare_classes)]
 
@@ -101,7 +101,7 @@ def train_val_test_split_fn(df_full, target_column, min_samples_per_class, rando
                 stratify=df_common[target_column], 
                 random_state=random_state
             )
-            
+
             # C. Try Split 2: Val (20%) vs Test (20%)
             val_common, test_common = train_test_split(
                 temp_common, 
@@ -109,10 +109,10 @@ def train_val_test_split_fn(df_full, target_column, min_samples_per_class, rando
                 stratify=temp_common[target_column], 
                 random_state=random_state
             )
-            
+
             # If we reach here, the split worked!
             split_successful = True
-            
+
             if not df_rare.empty:
                 print(f"Stratification successful with rare_threshold={rare_threshold}. "
                       f"Moved {len(df_rare)} rows (classes < {rare_threshold} samples) to Train.")
@@ -140,7 +140,7 @@ def train_val_test_split_fn(df_full, target_column, min_samples_per_class, rando
         min_samples_per_class, 
         random_state
     )
-    
+
     # ---------------------------------------------------------
     # 4. Dtype Restoration, Cleanup & Shuffling
     # ---------------------------------------------------------

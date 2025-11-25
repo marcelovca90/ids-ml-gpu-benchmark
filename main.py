@@ -54,9 +54,9 @@ if __name__ == "__main__":
     # ok # - CICAPT_IIoT
     # ok # - CICEVSE2024
     # ok # - CICIoV2024
-    # - EDGE_IIOTSET
-    # - N_BaIoT
-    # - NIDS
+    # ok # - EDGE_IIOTSET
+    # ok # - N_BaIoT
+    # ok # - NIDS
     # - ToN_IoT
 
     # ~/.bashrc
@@ -87,7 +87,7 @@ if __name__ == "__main__":
                 # --- 1. Full Run (frac == 1.0) ---
                 # We run this first to generate the base artifacts.
                 suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
-                
+
                 run_result = safe_exec(
                     runnable=lambda: dataset_cls(sample_frac=1.0, seed=seed, binarize=binarize_flag).pipeline(preload=False),
                     msg_prefix=msg_prefix,
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                     )
                     if not run_result['success']:
                         errors.append((now(), dataset_cls.__name__, binarize_flag, seed, sample_frac, run_result))
-    
+
     # --- 3. Final Cleanup / Organization ---
     run_result = safe_exec(
         runnable=lambda: copy_files(),
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     )
     if not run_result['success']:
         errors.append((now(), "copy_files", run_result))
-    
+
     # --- 4. Error Logging ----
     if errors:
         pprint(errors, indent=4)

@@ -56,7 +56,7 @@ def safe_exec(runnable, msg_prefix, dataset_name, msg_suffix):
     """
     Wraps execution with standard logging and error handling.
     Prints full stack trace on error for debugging.
-    
+
     Returns: 
         dict: {'success': bool, 'error': str | None}
     """
@@ -67,24 +67,24 @@ def safe_exec(runnable, msg_prefix, dataset_name, msg_suffix):
 
     try:
         log_event(msg_prefix, dataset_name, msg_suffix, "start")
-        
+
         # Run the function
         runnable()
-            
+
         log_event(msg_prefix, dataset_name, msg_suffix, "finish")
-        
+
         result["success"] = True
         return result
 
     except Exception as e:
         # 1. Log the short error (for history/discord)
         log_event(msg_prefix, dataset_name, f"{msg_suffix} — {e}", "error")
-        
+
         # 2. Print the FULL Stack Trace (Critical for debugging)
         log_event("--- STACK TRACE START ---")
         log_event(traceback.format_exc())
         log_event("--- STACK TRACE END ---")
-        
+
         result["error"] = str(e)
         return result
 

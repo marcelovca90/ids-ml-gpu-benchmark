@@ -519,12 +519,12 @@ class BasePreprocessingPipeline(ABC):
     def train_val_test_split(self) -> None:
         """
         Split self.data into FULL train/val/test sets.
-        
+
         MEMORY OPTIMIZATION:
         Once the split is done, self.data is redundant. We delete it 
         and force garbage collection to free up RAM immediately.
         """
-        
+
         # 1. Perform the split
         self.df_train_full, self.df_val_full, self.df_test_full = train_val_test_split_fn(
             self.data,
@@ -539,7 +539,7 @@ class BasePreprocessingPipeline(ABC):
         if hasattr(self.data, 'memory_usage'):
              mem_usage = self.data.memory_usage(deep=True).sum() / 1024**2
              log_print(f"Memory Optimization: Freeing self.data (~{mem_usage:.2f} MB)")
-        
+
         self.data = None
         gc.collect()
 
@@ -661,7 +661,7 @@ class BasePreprocessingPipeline(ABC):
                 continue
 
             train_df = getattr(self, u_def['train'])
-            
+
             # Identify numeric columns (Exclude Target and _ROW_ID)
             numeric_cols = train_df.select_dtypes(include=["number"]).columns
             numeric_cols = [
@@ -691,7 +691,7 @@ class BasePreprocessingPipeline(ABC):
                     qcut_result = pd.qcut(train_df[col], q=100, duplicates="drop")
                     intervals = qcut_result.cat.categories
                     labels = [f"Q{i+1}" for i in range(len(intervals))]
-                    
+
                     bins_dict[col] = {"type": "qcut", "bins": intervals, "labels": labels}
                     # Transform Train immediately
                     train_df[col] = qcut_result.cat.rename_categories(labels)
@@ -721,10 +721,10 @@ class BasePreprocessingPipeline(ABC):
                 for split_key in ['val', 'test']:
                     df_attr = u_def[split_key]
                     if not hasattr(self, df_attr): continue
-                    
+
                     df = getattr(self, df_attr)
                     if col not in df.columns: continue
-                    
+
                     # Apply cuts using the edges derived from Train
                     df[col] = pd.cut(df[col], bins=bin_edges, labels=labels)
                     df[col] = df[col].astype("category")
@@ -737,7 +737,7 @@ class BasePreprocessingPipeline(ABC):
     def data_driven_handle_object_columns(self, handle_obj_mode: str = "auto", target_universes: list = None) -> None:
         if handle_obj_mode == "keep":
             return
-        
+
         if target_universes is None:
             target_universes = ["FULL", "SAMPLED"]
 
@@ -749,7 +749,7 @@ class BasePreprocessingPipeline(ABC):
             if not hasattr(self, u_def['train']): continue
 
             train_df = getattr(self, u_def['train'])
-            
+
             object_cols = (
                 train_df.drop(columns=[self.target])
                 .select_dtypes(include="object")
@@ -807,7 +807,7 @@ class BasePreprocessingPipeline(ABC):
                         # Frequency Encoding
                         freq_map = (value_counts / len(train_df)).astype("float32")
                         encoders_info[col] = {"type": "frequency", "skewness": float(skewness)}
-                        
+
                         for sk in split_keys:
                             df_attr = u_def[sk]
                             if hasattr(self, df_attr):
@@ -829,7 +829,7 @@ class BasePreprocessingPipeline(ABC):
                                     setattr(self, df_attr, df)
 
             setattr(self, u_def['encoders_obj'], encoders_info)
-            
+
             log_print(f"[{u_name}] Data-driven object handling: dtypes/memory AFTER (train):")
             log_data_types(getattr(self, u_def['train']))
             log_memory_usage(getattr(self, u_def['train']))
@@ -838,7 +838,7 @@ class BasePreprocessingPipeline(ABC):
     def data_driven_handle_object_columns(self, handle_obj_mode: str = "auto", target_universes: list = None) -> None:
         if handle_obj_mode == "keep":
             return
-        
+
         if target_universes is None:
             target_universes = ["FULL", "SAMPLED"]
 
@@ -850,7 +850,7 @@ class BasePreprocessingPipeline(ABC):
             if not hasattr(self, u_def['train']): continue
 
             train_df = getattr(self, u_def['train'])
-            
+
             object_cols = (
                 train_df.drop(columns=[self.target])
                 .select_dtypes(include="object")
@@ -908,7 +908,7 @@ class BasePreprocessingPipeline(ABC):
                         # Frequency Encoding
                         freq_map = (value_counts / len(train_df)).astype("float32")
                         encoders_info[col] = {"type": "frequency", "skewness": float(skewness)}
-                        
+
                         for sk in split_keys:
                             df_attr = u_def[sk]
                             if hasattr(self, df_attr):
@@ -930,7 +930,7 @@ class BasePreprocessingPipeline(ABC):
                                     setattr(self, df_attr, df)
 
             setattr(self, u_def['encoders_obj'], encoders_info)
-            
+
             log_print(f"[{u_name}] Data-driven object handling: dtypes/memory AFTER (train):")
             log_data_types(getattr(self, u_def['train']))
             log_memory_usage(getattr(self, u_def['train']))
@@ -962,16 +962,16 @@ class BasePreprocessingPipeline(ABC):
                                 elif pd.api.types.is_float_dtype(df[col]):
                                     df[col] = df[col].astype("float32")
                         setattr(self, df_attr, df)
-                        
+
             elif shrink_mode == "aggressive":
                 # Build combined view for THIS universe
                 dfs = []
                 for split_key in ['train', 'val', 'test']:
                     if hasattr(self, u_def[split_key]):
                         dfs.append(getattr(self, u_def[split_key]))
-                
+
                 if not dfs: continue
-                
+
                 df_all = pd.concat(dfs, axis=0, ignore_index=True)
                 df_report = report_on_dataframe(df_all, unit="MB", optimize="computation")
                 df_all_opt = optimize_dtypes(df_all, df_report)
@@ -994,11 +994,11 @@ class BasePreprocessingPipeline(ABC):
         for u_name in target_universes:
             u_def = self._get_universe_definition(u_name)
             if not hasattr(self, u_def['train']): continue
-            
+
             # Canonical source is the TRAIN set of THIS universe
             ref_df = getattr(self, u_def['train'])
             base_cols = list(ref_df.columns)
-            
+
             if self.target not in base_cols:
                 # Fallback or Error if target missing in train (unlikely)
                 continue
@@ -1089,7 +1089,7 @@ class BasePreprocessingPipeline(ABC):
 
         for u_name in target_universes:
             u_def = self._get_universe_definition(u_name)
-            
+
             for split_key in ['train', 'val', 'test']:
                 df_attr = u_def[split_key]
                 if hasattr(self, df_attr):
@@ -1121,13 +1121,13 @@ class BasePreprocessingPipeline(ABC):
             return
         if target_universes is None:
             target_universes = ["FULL", "SAMPLED"]
-        
+
         minimal_flag = (profile_mode == "minimal")
 
         for u_name in target_universes:
             u_def = self._get_universe_definition(u_name)
             if not hasattr(self, u_def['train']): continue
-            
+
             log_print(f"Computing profile for {u_name} universe...")
             df = getattr(self, u_def['train'])
             profile = ProfileReport(df=df, minimal=minimal_flag)
@@ -1162,12 +1162,12 @@ class BasePreprocessingPipeline(ABC):
                 if hasattr(self, u_def[split_key]):
                     df = getattr(self, u_def[split_key])
                     suffix = f"{split_key}_{u_def['metadata_key']}" # e.g. train_full
-                    
+
                     meta_dict["shapes"][suffix] = df.shape
 
                     mem_bytes = df.memory_usage(deep=True).sum()
                     meta_dict["memory_usage_mb"][suffix] = round(mem_bytes / 1024**2, 2)
-                    
+
                     if self.target in df.columns:
                         meta_dict["target_value_counts"][suffix] = df[self.target].value_counts().to_dict()
 
@@ -1198,7 +1198,7 @@ class BasePreprocessingPipeline(ABC):
             profile = getattr(self, u_def['profile_attr'])
             if profile is not None:
                 profile.to_file(os.path.join(out_dir, "profile.html"))
-        
+
         log_print(f"Saved {u_name} artifacts to {out_dir}")
 
     @function_call_logger
@@ -1242,7 +1242,7 @@ class BasePreprocessingPipeline(ABC):
 
         if not preload:
             log_print("--- PIPELINE MODE: FULL GENERATION ---")
-            
+
             # a. Raw Loading & Rule-Based Cleaning
             self.prepare()
             self.load()
@@ -1256,13 +1256,13 @@ class BasePreprocessingPipeline(ABC):
             self.rule_based_discretize_port_columns()
             self.rule_based_handle_object_columns(handle_obj_mode)
             self.drop_na_duplicates()
-            
+
             monitor.checkpoint("loading_and_cleaning")
 
             # b. Split into FULL universe
             self.train_val_test_split()
             self.drop_high_unique_columns() 
-            
+
             # c. Determine Targets
             target = ["FULL"]
             # If user asked for a sample (e.g., 0.2) but started from raw data (preload=False),
@@ -1286,7 +1286,7 @@ class BasePreprocessingPipeline(ABC):
             self.reset_index(target_universes=target)
 
             monitor.checkpoint("transformation")
-            
+
             # f. Profile & Save
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
@@ -1295,17 +1295,17 @@ class BasePreprocessingPipeline(ABC):
 
         else:
             log_print(f"--- PIPELINE MODE: SAMPLED (frac={self.sample_frac}) ---")
-            
+
             # a. Load the already-processed FULL universe
             self.preload()
-            
+
             # b. Create the Sampled Universe (Derived from Full)
             self.sample_train_subset()
             self.assert_disjoint_subsets()
-            
+
             # c. Process SAMPLED Universe ONLY
             target = ["SAMPLED"]
-            
+
             # d. Drop ID immediately after checking disjointness
             self.drop_row_id(target_universes=target)
 
@@ -1319,7 +1319,7 @@ class BasePreprocessingPipeline(ABC):
             self.reset_index(target_universes=target)
 
             monitor.checkpoint("transformation")
-            
+
             # f. Profile & Save SAMPLED
             self.compute_profile(profile_mode, target_universes=target)
             self.update_metadata(target_universes=target)
@@ -1328,7 +1328,7 @@ class BasePreprocessingPipeline(ABC):
 
         # 3. Stop Monitoring
         execution_stats = monitor.stop()
-        
+
         # 4. Inject Profiling Stats
         for u_name in target:
             key = self._get_universe_definition(u_name)['metadata_key']

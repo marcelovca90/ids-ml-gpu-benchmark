@@ -98,13 +98,13 @@ if __name__ == "__main__":
 
     # For progress bar calculation
     total_steps = len(BINARIZE_FLAGS) * len(subfolders)
-    
+
     # 1. Loop Configuration (Binarize)
     for i, binarize_flag in enumerate(tqdm(BINARIZE_FLAGS, desc="Binarize", leave=False)):
-        
+
         # 2. Loop Datasets (Subfolders)
         for j, subfolder in enumerate(tqdm(subfolders, desc="BCCC_Subfolder", leave=False)):
-            
+
             # Construct a readable ID for logs
             step_idx = (i * len(subfolders)) + j + 1
             msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
@@ -112,14 +112,14 @@ if __name__ == "__main__":
 
             # 3. Loop Seeds (Randomness)
             for seed in tqdm(SEEDS, desc='Seed', leave=False):
-                
+
                 # ==================================================
                 # A. FULL RUN (Generator)
                 # ==================================================
                 # Must run first with sample_frac=1.0 and preload=False
                 # to generate the base artifacts (cleaning, splitting, ID creation).
                 suffix_full = f"binarize={binarize_flag} sample_frac=1.0 seed={seed}"
-                
+
                 run_result = safe_exec(
                     runnable=lambda: BCCC(
                         subfolder=subfolder, 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     )
     if not run_result['success']:
         errors.append((now(), "copy_files", run_result))
-    
+
     # --- 4. Error Logging ----
     if errors:
         pprint(errors, indent=4)

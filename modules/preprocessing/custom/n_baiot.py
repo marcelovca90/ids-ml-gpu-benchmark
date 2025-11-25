@@ -41,7 +41,7 @@ class N_BaIoT(BasePreprocessingPipeline):
         subfolder_path = os.path.join(self.base_folder, 'source', self.subfolder)
 
         dfs = []
-        
+
         benign_df = pd.read_csv(os.path.join(subfolder_path, 'benign_traffic.csv'))
         benign_df[self.target] = 'benign_traffic'
         dfs.append(benign_df)
@@ -55,7 +55,7 @@ class N_BaIoT(BasePreprocessingPipeline):
                     malign_df_tmp = pd.read_csv(os.path.join(malign_subfolder, csv_file))
                     malign_df_tmp[self.target] = f"{malign_botnet.replace('_attacks', '')}_{csv_file.replace('.csv', '')}"
                     dfs.append(malign_df_tmp)
-        
+
         df = pd.concat(dfs, axis='index')
 
         if self.binarize:
@@ -114,7 +114,7 @@ if __name__ == "__main__":
             # Construct readable ID and progress prefix
             step_idx = (i * len(subfolders)) + j + 1
             msg_prefix = f"[{step_idx:02}/{total_steps:02}]"
-            
+
             dataset_identifier = f"N_BaIoT/{subfolder}"
 
             # 3. Loop Seeds (Randomness)

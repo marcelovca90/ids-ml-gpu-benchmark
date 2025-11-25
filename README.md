@@ -1,5 +1,5 @@
 # Large-Scale Benchmarking of Intrusion Detection Datasets with GPU-Accelerated Data Pipelines, Complexity Analysis, and Model Evaluation
-  
+
 Authors: *Marcelo V. C. Aragão, Felipe A. P. de Figueiredo, and Samuel B. Mafra*
 
 ![Overview of the proposed IDS benchmarking pipeline.](artifacts/diagram.png)

@@ -182,7 +182,7 @@ def compute_knn_overlap(X: pd.DataFrame, y: pd.Series, k: int = None) -> dict:
     clf = KNeighborsClassifier(n_neighbors=k, n_jobs=-1)
     clf.fit(X, y)
     y_pred = clf.predict(X)
-    
+
     accuracy = np.mean(y_pred == y)
     overlap_fraction = 1 - accuracy
 
