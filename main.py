@@ -70,7 +70,9 @@ if __name__ == "__main__":
     # PYTHONPATH=. python modules/preprocessing/custom/nids.py ; \
     # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
     # PYTHONPATH=. python modules/filesystem/file_utils.py ; \
-    # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
+    # PYTHONPATH=. python -u modules/complexity/preparer.py ; \
+    # PYTHONPATH=. python -u modules/complexity/calculator.py ; \
+    # PYTHONPATH=. python -u modules/complexity/parser.py'
 
     # For logging
     errors = []

@@ -137,8 +137,8 @@ def safe_call(func, *args, **kwargs):
 if __name__ == "__main__":
 
     TARGET_COL = 'label'
-    INPUT_FOLDER = '2025-07-05/Input_Multiclass'
-    OUTPUT_FOLDER = '2025-07-05/Output_Multiclass'
+    INPUT_FOLDER = '2025-11-17/Input_Zip_v3b'
+    OUTPUT_FOLDER = '2025-11-17/Output_Zip_v3b'
     SAMPLE_FRACS = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
     SKIP_IF_EXISTS = False
 

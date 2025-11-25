@@ -377,7 +377,7 @@ def compute_cuml_complexity_metrics(X: cudf.DataFrame, y: cudf.Series) -> dict:
 if __name__ == "__main__":
 
     TARGET_COL = 'label'
-    BASE_FOLDER = '2025-07-05/Output_Multiclass'
+    BASE_FOLDER = '2025-11-17/Output_Zip_v3b'
     SAMPLE_FRACS = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
     SKIP_IF_EXISTS = False
 
