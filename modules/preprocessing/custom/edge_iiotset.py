@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import warnings
 from pathlib import Path
+from pprint import pprint
 from tqdm import tqdm
 
 import numpy as np
@@ -14,14 +16,15 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
-from modules.preprocessing.preproc_utils import safe_exec
+from modules.preprocessing.constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import now, safe_exec
 from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
 from modules.preprocessing.preprocessor import BasePreprocessingPipeline
 from modules.preprocessing.stats import log_value_counts
 
+# PYTHONPATH=. python modules/preprocessing/custom/edge_iiotset.py
 class EDGE_IIOTSET(BasePreprocessingPipeline):
 
     def __init__(self, sample_frac, seed, binarize, csv_filename=None) -> None:
@@ -76,6 +79,9 @@ class EDGE_IIOTSET(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/edge_iiotset.py
 if __name__ == "__main__":
 
+    # For logging
+    errors = []
+
     csv_filenames = [
         "ML-EdgeIIoT-dataset.csv",
         "DNN-EdgeIIoT-dataset.csv"
@@ -116,8 +122,9 @@ if __name__ == "__main__":
                     msg_suffix=suffix_full
                 )
 
-                # If Full run fails (e.g. missing CSV), skip sampled runs for this seed
+                # If Full run fails, skip sampled runs for this seed
                 if not run_result['success']:
+                    errors.append((now(), csv_filename, binarize_flag, seed, "full", run_result))
                     continue
 
                 # ==================================================
@@ -140,6 +147,8 @@ if __name__ == "__main__":
                         dataset_name=dataset_identifier,
                         msg_suffix=suffix_sampled
                     )
+                    if not run_result['success']:
+                        errors.append((now(), csv_filename, binarize_flag, seed, sample_frac, run_result))
 
     # 4. Final Cleanup
     run_result = safe_exec(
@@ -148,3 +157,11 @@ if __name__ == "__main__":
         dataset_name="EDGE_IIOTSET",
         msg_suffix="Copying Files"
     )
+    if not run_result['success']:
+        errors.append((now(), "copy_files", run_result))
+
+    # --- 5. Error Logging ----
+    if errors:
+        pprint(errors, indent=4)
+        with open(f'logs/{now()}_EDGE_IIOTSET_errors.json', 'w') as f:
+            json.dump(errors, f, indent=4, default=str)

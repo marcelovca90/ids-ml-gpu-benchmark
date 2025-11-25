@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import warnings
 from pathlib import Path
+from pprint import pprint
 from tqdm import tqdm
 
 import numpy as np
@@ -14,8 +16,8 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
-from modules.preprocessing.preproc_utils import safe_exec
+from modules.preprocessing.constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import now, safe_exec
 from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
@@ -77,6 +79,9 @@ class NIDS(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/nids.py
 if __name__ == "__main__":
 
+    # For logging
+    errors = []
+
     # List of Paths to source CSVs
     csv_filenames_data = [
         Path('datasets/NIDS/source/CIC-BoT-IoT/a27809afa6caa7e0_MOHANAD_A4706/data/CIC-BoT-IoT.csv'),
@@ -135,6 +140,7 @@ if __name__ == "__main__":
 
                 # If Full run fails, skip sampled runs for this seed
                 if not run_result['success']:
+                    errors.append((now(), csv_path, binarize_flag, seed, "full", run_result))
                     continue
 
                 # ==================================================
@@ -157,6 +163,8 @@ if __name__ == "__main__":
                         dataset_name=dataset_identifier,
                         msg_suffix=suffix_sampled
                     )
+                    if not run_result['success']:
+                        errors.append((now(), csv_path, binarize_flag, seed, sample_frac, run_result))
 
     # 4. Final Cleanup
     run_result = safe_exec(
@@ -165,3 +173,11 @@ if __name__ == "__main__":
         dataset_name="NIDS",
         msg_suffix="Copying Files"
     )
+    if not run_result['success']:
+        errors.append((now(), "copy_files", run_result))
+
+    # --- 5. Error Logging ----
+    if errors:
+        pprint(errors, indent=4)
+        with open(f'logs/{now()}_CICIoV2024_errors.json', 'w') as f:
+            json.dump(errors, f, indent=4, default=str)

@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import warnings
 from pathlib import Path
+from pprint import pprint
 from tqdm import tqdm
 
 import numpy as np
@@ -14,8 +16,8 @@ warnings.filterwarnings("ignore", message="invalid value encountered in subtract
 warnings.filterwarnings("ignore", message="overflow encountered in cast", category=RuntimeWarning)
 warnings.filterwarnings("ignore", message="overflow encountered in reduce", category=RuntimeWarning)
 
-from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
-from modules.preprocessing.preproc_utils import safe_exec
+from modules.preprocessing.constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import now, safe_exec
 from modules.filesystem.file_utils import copy_files
 
 from modules.logging.logger import function_call_logger, log_print
@@ -76,6 +78,8 @@ class CICIoV2024(BasePreprocessingPipeline):
 # PYTHONPATH=. python modules/preprocessing/custom/CICIoV2024.py
 if __name__ == "__main__":
 
+    # For logging
+    errors = []
     subfolders = ['binary', 'decimal'] #, 'hexadecimal']
     modes = ['micro', 'macro']
 
@@ -121,6 +125,7 @@ if __name__ == "__main__":
 
                     # If Full run fails, skip sampled runs for this seed
                     if not run_result['success']:
+                        errors.append((now(), subfolder, binarize_flag, seed, "full", run_result))
                         continue
 
                     # ==================================================
@@ -144,6 +149,8 @@ if __name__ == "__main__":
                             dataset_name=dataset_identifier,
                             msg_suffix=suffix_sampled
                         )
+                        if not run_result['success']:
+                            errors.append((now(), subfolder, binarize_flag, seed, sample_frac, run_result))
 
     # 5. Final Cleanup
     run_result = safe_exec(
@@ -152,3 +159,11 @@ if __name__ == "__main__":
         dataset_name="CICIoV2024",
         msg_suffix="Copying Files"
     )
+    if not run_result['success']:
+        errors.append((now(), "copy_files", run_result))
+
+    # --- 6. Error Logging ----
+    if errors:
+        pprint(errors, indent=4)
+        with open(f'logs/{now()}_CICIoV2024_errors.json', 'w') as f:
+            json.dump(errors, f, indent=4, default=str)

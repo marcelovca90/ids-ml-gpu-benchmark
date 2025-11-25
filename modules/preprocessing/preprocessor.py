@@ -138,7 +138,7 @@ class BasePreprocessingPipeline(ABC):
         self.df_test_full  = pd.read_parquet(test_path)
 
         # Optionally load full metadata
-        meta_full_path = os.path.join(full_dir, "metadata.json")
+        meta_full_path = os.path.join(full_dir, f"{self.name}.metadata.json")
         if os.path.exists(meta_full_path):
             with open(meta_full_path) as fp:
                 meta_full = json.load(fp)
@@ -1190,7 +1190,7 @@ class BasePreprocessingPipeline(ABC):
 
         # 2. Save Metadata
         meta_data = self.metadata.get(u_def['metadata_key'], {})
-        with open(os.path.join(out_dir, "metadata.json"), "w") as f:
+        with open(os.path.join(out_dir, f"{self.name}.metadata.json"), "w") as f:
             json.dump(meta_data, f, indent=2, cls=NumpyEncoder)
 
         # 3. Save Profile

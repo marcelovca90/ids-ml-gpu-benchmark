@@ -1,8 +1,9 @@
-
+import json
+from pprint import pprint
 from tqdm import tqdm
 
-from constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
-from modules.preprocessing.preproc_utils import safe_exec
+from modules.preprocessing.constants import BINARIZE_FLAGS, SAMPLE_FRACS, SEEDS
+from modules.preprocessing.preproc_utils import now, safe_exec
 from modules.filesystem.file_utils import copy_files
 
 from modules.preprocessing.custom.bot_iot_macro import BoT_IoT_Macro
@@ -32,27 +33,27 @@ from modules.preprocessing.custom.unsw_nb15 import UNSW_NB15
 if __name__ == "__main__":
 
     dataset_classes = [
-        # BoT_IoT_Macro,
-        # BoT_IoT_Micro,
-        # CIC_IDS_2017,
-        # CICIoMT2024_Bluetooth,
-        # CICIoMT2024_WiFi_and_MQTT,
-        # CIC_IOT_Dataset2023,
-        # IoT_23,
-        # IoT_Network_Intrusion_Macro,
-        # IoT_Network_Intrusion_Micro,
-        KDD_Cup_1999,
-        # MQTT_IoT_IDS2020_BiflowFeatures,
-        # MQTT_IoT_IDS2020_PacketFeatures,
-        # MQTT_IoT_IDS2020_UniflowFeatures,
-        # UNSW_NB15
+        # ok # BoT_IoT_Macro,
+        # ok # BoT_IoT_Micro,
+        # ok # CIC_IDS_2017,
+        # ok # CICIoMT2024_Bluetooth,
+        # ok # CICIoMT2024_WiFi_and_MQTT,
+        # ok # CIC_IOT_Dataset2023,
+        # ok # IoT_23,
+        # ok # IoT_Network_Intrusion_Macro,
+        # ok # IoT_Network_Intrusion_Micro,
+        # ok # KDD_Cup_1999,
+        # ok # MQTT_IoT_IDS2020_BiflowFeatures,
+        # ok # MQTT_IoT_IDS2020_PacketFeatures,
+        # ok # MQTT_IoT_IDS2020_UniflowFeatures,
+        # ok # UNSW_NB15
     ]
 
     # independent datasets (must be run separately):
-    # - BCCC
-    # - CICAPT_IIoT
-    # - CICEVSE2024
-    # - CICIoV2024
+    # ok # - BCCC
+    # ok # - CICAPT_IIoT
+    # ok # - CICEVSE2024
+    # ok # - CICIoV2024
     # - EDGE_IIOTSET
     # - N_BaIoT
     # - NIDS
@@ -70,6 +71,9 @@ if __name__ == "__main__":
     # PYTHONPATH=. python modules/preprocessing/custom/ton_iot.py ; \
     # PYTHONPATH=. python modules/filesystem/utils.py ; \
     # PYTHONPATH=. python modules/preprocessing/complexity_gpu.py'
+
+    # For logging
+    errors = []
 
     for d, dataset_cls in enumerate(tqdm(dataset_classes, desc='Dataset', leave=False)):
 
@@ -94,6 +98,7 @@ if __name__ == "__main__":
                 # If the full run failed, we MUST skip the sampled runs for this seed
                 # because the base artifacts won't exist.
                 if not run_result['success']:
+                    errors.append((now(), dataset_cls.__name__, binarize_flag, seed, "full", run_result))
                     continue
 
                 # --- 2. Sampled Runs (frac < 1.0) ---
@@ -109,11 +114,21 @@ if __name__ == "__main__":
                         dataset_name=ds_name,
                         msg_suffix=suffix_sampled
                     )
+                    if not run_result['success']:
+                        errors.append((now(), dataset_cls.__name__, binarize_flag, seed, sample_frac, run_result))
     
-    # 3; Final Cleanup / Organization
+    # --- 3. Final Cleanup / Organization ---
     run_result = safe_exec(
         runnable=lambda: copy_files(),
         msg_prefix="[FINAL]",
         dataset_name="Main",
         msg_suffix="Copying Files"
     )
+    if not run_result['success']:
+        errors.append((now(), "copy_files", run_result))
+    
+    # --- 4. Error Logging ----
+    if errors:
+        pprint(errors, indent=4)
+        with open(f'logs/{now()}_MAIN_errors.json', 'w') as f:
+            json.dump(errors, f, indent=4, default=str)

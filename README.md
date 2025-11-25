@@ -38,7 +38,7 @@ Authors: *Marcelo V. C. Aragão, Felipe A. P. de Figueiredo, and Samuel B. Mafra
 ```bash
 sudo apt update
 
-sudo apt install git git-lfs libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2
+sudo apt install git git-lfs libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2 tshark
 
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 sudo dpkg -i google-chrome-stable_current_amd64.deb
