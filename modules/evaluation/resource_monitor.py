@@ -135,6 +135,9 @@ class ResourceMonitor:
     # --- PUBLIC API ---
 
     def start(self):
+        # Ensure any previous thread is actually stopped before starting a new one
+        if self._thread and self._thread.is_alive():
+            self.stop(stop_pynvml=False)
         self._reset_accumulators()
         self.stop_event.clear()
         self._thread = threading.Thread(target=self._monitor, daemon=True)
@@ -148,22 +151,24 @@ class ResourceMonitor:
             log_print(f"[Monitor] Checkpoint '{stage_name}' ({stats['duration_sec']}s).")
             self._reset_accumulators()
 
-    def stop(self):
-        if not self._thread: return self.history
+    def stop(self, stop_pynvml=False):
+        if not self._thread:
+            if stop_pynvml and pynvml_available:
+                try: pynvml.nvmlShutdown()
+                except: pass
+            return self.history
 
         self.stop_event.set()
-        self._thread.join()
+        self._thread.join(timeout=3)
 
         with self.lock:
             final_stats = self._snapshot()
             if final_stats['duration_sec'] > 0.1:
                 self.history["teardown"] = final_stats
 
-        if pynvml_available:
-            try:
-                pynvml.nvmlShutdown()
-            except:
-                pass
+        if stop_pynvml and pynvml_available:
+            try: pynvml.nvmlShutdown()
+            except: pass
 
         return self.history
 
@@ -171,4 +176,6 @@ class ResourceMonitor:
         return self.start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
+        # Explicitly pass False so the context manager doesn't 
+        # accidentally shut down the GPU driver between loop iterations.
+        self.stop(stop_pynvml=False)
