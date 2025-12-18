@@ -402,8 +402,9 @@ if __name__ == "__main__":
 
                 for frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
 
+                    frac_suffix = 'full' if frac == 'full' else f'sampled_{frac}'
                     src_path = os.path.join(
-                        BASE_FOLDER, name, 'Multiclass', f'seed_{seed}', f'sampled_{frac}', f'{name}_X_y.npz'
+                        BASE_FOLDER, name, 'Multiclass', f'seed_{seed}', frac_suffix, f'{name}_X_y.npz'
                     )
 
                     abs_path = Path(src_path).resolve()
