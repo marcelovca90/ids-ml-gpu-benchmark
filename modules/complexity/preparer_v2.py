@@ -133,99 +133,113 @@ def safe_call(func, *args, **kwargs):
         return {}
 
 
+def get_folder_size(folder):
+    files = [f for f in Path(folder).rglob('*') if f.is_file()]
+    size = sum(f.stat().st_size for f in files)
+    return size
+
+
 # PYTHONPATH=. python modules/complexity/preparer.py
 if __name__ == "__main__":
 
     TARGET_COL = 'label'
-    INPUT_FOLDER = '2025-11-17/Input_Zip_v3b'
-    OUTPUT_FOLDER = '2025-11-17/Output_Zip_v3b'
-    SAMPLE_FRACS = [0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
+    INPUT_FOLDER = '2025-11-17/Input_Zip_v4'
+    OUTPUT_FOLDER = '2025-11-17/Output_Zip_v4_Complexity'
+    SEEDS = ['17']
+    SAMPLE_FRACS = ['05']#, 0.05, 0.10, 0.25, 0.50, 1.00]
     SKIP_IF_EXISTS = False
 
-    candidate_files = sorted(
-        list(Path(INPUT_FOLDER).rglob("*.parquet")),
-        key=lambda p: os.path.getsize(p)
+    ds_folders = sorted(
+        os.listdir(INPUT_FOLDER),
+        key=lambda f: get_folder_size(os.path.join(INPUT_FOLDER, f))
     )
 
-    for sample_frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
+    for name in tqdm(ds_folders, desc='Dataset ', leave=False):
 
-        sample_frac_suffix = str(int(100 * sample_frac)).zfill(3)
+        if '2017' not in name and 'KDD' not in name: continue
 
-        for src_path in tqdm(candidate_files, desc='Candidate', leave=False):
-            try:
-                if not src_path.is_file():
-                    continue
+        for seed in tqdm(SEEDS, desc='Seed    ', leave=False):
 
-                abs_path = str(src_path.resolve())
-                dst_path = Path(abs_path
-                                .replace(INPUT_FOLDER, f'{OUTPUT_FOLDER}/{sample_frac_suffix}_pct')
-                                .replace('.parquet', f'.npz'))
-                src_path_short = '/'.join(str(src_path).split('/')[-2:])
-                dst_path_short = '/'.join(str(dst_path).split('/')[-3:])
-                os.makedirs(dst_path.parent, exist_ok=True)
+            for frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
 
-                if SKIP_IF_EXISTS and dst_path.exists():
-                    tqdm.write(f"Skipping {dst_path}; npz already exists.")
-                    continue
-
-                tqdm.write(f'[{now()}] DS: {src_path_short:<80} | PROCESSING @ FRAC={sample_frac:.2f}')
-
-                # Read and clean with cuDF
-                df = pd.read_parquet(src_path)
-
-                # Restore dtypes from metadata
-                metadata_path = abs_path.replace('.parquet', '.json')
-                with open(metadata_path, 'r', encoding='utf-8') as fp:
-                    metadata = json.load(fp)
-                for col, dtype in metadata['dtypes'].items():
-                    df[col] = df[col].astype(dtype)
-
-                # Type normalization
-                for col in df.select_dtypes(['int8', 'int16', 'int64']).columns:
-                    df[col] = df[col].astype('int32')
-                for col in df.select_dtypes(['float16', 'float64']).columns:
-                    df[col] = df[col].astype('float32')
-
-                # Factorize categorical columns
-                label_mappings = {}
-                for col in df.select_dtypes(include=["category"]).columns:
-                    df[col], mapping = df[col].factorize()
-                    label_mappings[col] = mapping.tolist()
-
-                # Drop NAs and duplicates
-                df = df.replace([np.inf, -np.inf], np.nan)
-                df = df.dropna(axis=1, how='all')
-                df = df.dropna(axis=0, how='any')
-                df = df.drop_duplicates()
-
-                # Target column and dtypes pre-checks
-                assert TARGET_COL in df.columns, "TARGET_COL column is missing"
-                remaining_object_cols = df.select_dtypes(include=["object", "category"]).columns
-                assert len(remaining_object_cols) == 0, f"Unencoded categorical columns remain: {list(remaining_object_cols)}"
-
-                # Save shapes before preprocessing
-                shape_before = df.shape
-                n_classes_before = df[TARGET_COL].nunique()
-
-                # Stratified sample
-                df = stratified_sample_with_min(
-                    df=df,
-                    stratify_col=TARGET_COL,
-                    max_total_samples=int(sample_frac * len(df)),
-                    min_samples_per_class=max(10, min(df[TARGET_COL].value_counts()))
+                src_path = os.path.join(
+                    INPUT_FOLDER, name, 'Multiclass', f'seed_{seed}', f'sampled_{frac}'
                 )
-                
-                # Further preprocessing for metrics
-                X, y = df.drop(columns=[TARGET_COL]), df[TARGET_COL]
-                X, y = preprocess_factorized(X, y, reduce_dim=False)
 
-                assert np.isnan(X).sum() == 0, 'NaNs found in X'
-                assert np.isnan(y).sum() == 0, 'NaNs found in y'
+                try:
 
-                np.savez(dst_path, X=X, y=y)
-                npz_size = dst_path.stat().st_size / 1024 / 1024
+                    with open(os.path.join(src_path, f'{name}.metadata.json')) as fp:
+                        metadata = json.load(fp)
 
-                tqdm.write(f'[{now()}] DS: {dst_path_short:<80} | ___DONE___ @ FRAC={sample_frac:.2f} | SIZE={npz_size:.2f}MB')
+                    abs_path = Path(src_path).resolve()
+                    dst_path = Path(f"{str(abs_path).replace(INPUT_FOLDER, OUTPUT_FOLDER)}/{metadata['name']}.npz")
+                    src_path_short = '/'.join(str(src_path).split('/')[-4:])
+                    dst_path_short = '/'.join(str(dst_path).split('/')[-5:])
+                    os.makedirs(dst_path.parent, exist_ok=True)
 
-            except Exception as e:
-                tqdm.write(f"[{now()}] Error in {src_path}: {e}")
+                    if SKIP_IF_EXISTS and dst_path.exists():
+                        tqdm.write(f"Skipping {dst_path}; npz already exists.")
+                        continue
+
+                    tqdm.write(f'[{now()}] DS: {src_path_short:<80} | PROCESSING | SEED={seed} | FRAC={frac}')
+
+                    # Read and clean with cuDF
+                    df = pd.concat([
+                        pd.read_parquet(os.path.join(src_path, f'{name}_train.parquet')),
+                        pd.read_parquet(os.path.join(src_path, f'{name}_val.parquet')),
+                        pd.read_parquet(os.path.join(src_path, f'{name}_test.parquet'))
+                    ], axis='index')
+
+                    # Restore dtypes from metadata
+                    for col, dtype in metadata['dtypes'].items():
+                        df[col] = df[col].astype(dtype)
+
+                    # Type normalization
+                    for col in df.select_dtypes(['int8', 'int16', 'int64']).columns:
+                        df[col] = df[col].astype('int32')
+                    for col in df.select_dtypes(['float16', 'float64']).columns:
+                        df[col] = df[col].astype('float32')
+
+                    # Factorize categorical columns
+                    label_mappings = {}
+                    for col in df.select_dtypes(include=["category"]).columns:
+                        df[col], mapping = df[col].factorize()
+                        label_mappings[col] = mapping.tolist()
+
+                    # Drop NAs and duplicates
+                    df = df.replace([np.inf, -np.inf], np.nan)
+                    df = df.dropna(axis=1, how='all')
+                    df = df.dropna(axis=0, how='any')
+                    df = df.drop_duplicates()
+
+                    # Target column and dtypes pre-checks
+                    assert TARGET_COL in df.columns, "TARGET_COL column is missing"
+                    remaining_object_cols = df.select_dtypes(include=["object", "category"]).columns
+                    assert len(remaining_object_cols) == 0, f"Unencoded categorical columns remain: {list(remaining_object_cols)}"
+
+                    # Save shapes before preprocessing
+                    shape_before = df.shape
+                    n_classes_before = df[TARGET_COL].nunique()
+
+                    # Stratified sample
+                    # df = stratified_sample_with_min(
+                    #     df=df,
+                    #     stratify_col=TARGET_COL,
+                    #     max_total_samples=int(frac * len(df)),
+                    #     min_samples_per_class=max(10, min(df[TARGET_COL].value_counts()))
+                    # )
+                    
+                    # Further preprocessing for metrics
+                    X, y = df.drop(columns=[TARGET_COL]), df[TARGET_COL]
+                    X, y = preprocess_factorized(X, y, reduce_dim=False)
+
+                    assert np.isnan(X).sum() == 0, 'NaNs found in X'
+                    assert np.isnan(y).sum() == 0, 'NaNs found in y'
+
+                    np.savez(dst_path, X=X, y=y)
+                    npz_size = dst_path.stat().st_size / 1024 / 1024
+
+                    tqdm.write(f'[{now()}] DS: {dst_path_short:<80} | ___DONE___ | SEED={seed} | FRAC={frac} | SIZE={npz_size:.2f}MB')
+
+                except Exception as e:
+                    tqdm.write(f"[{now()}] Error in {src_path}: {e}")

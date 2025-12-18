@@ -12,7 +12,7 @@ from cuml.linear_model import LogisticRegression
 from cuml.svm import LinearSVC
 from tqdm import tqdm
 
-from modules.complexity.preparer import now, safe_call
+from modules.complexity.preparer_v2 import now, safe_call
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
