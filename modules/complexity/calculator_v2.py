@@ -158,10 +158,10 @@ def compute_mahalanobis_class_distance(X: cudf.DataFrame, y: cudf.Series) -> dic
         X_class = X_cp[class_mask]
         mean_c = cp.mean(X_class, axis=0)
         cov_c = cp.cov(X_class, rowvar=False)
-        
+
         # Regularize covariance to avoid singularity
         cov_c += cp.eye(cov_c.shape[0]) * 1e-6
-        
+
         inv_cov_c = cp.linalg.inv(cov_c)
         diff = X_class - mean_c
         dists = cp.sqrt(cp.sum(diff @ inv_cov_c * diff, axis=1))
@@ -344,29 +344,29 @@ def compute_class_imbalance(y: cudf.Series) -> dict:
 
 ################################################################################
 
-def compute_cuml_complexity_metrics(X: cudf.DataFrame, y: cudf.Series) -> dict:
+def compute_cuml_complexity_metrics(X: cudf.DataFrame, y: cudf.Series, monitor=None) -> dict:
     tqdm.write(f"[{now()}] Starting full complexity computation...")
 
     results = {
         # 1. Feature Relevance
-        "anova_f": safe_call(compute_anova_f_complexity, X, y),
-        "mutual_info": safe_call(compute_mutual_info_complexity, X, y),
+        "anova_f": safe_call(compute_anova_f_complexity, X, y, monitor=monitor),
+        "mutual_info": safe_call(compute_mutual_info_complexity, X, y, monitor=monitor),
 
         # 2. Local Overlap
-        "pca_centroid_distance": safe_call(compute_pca_centroid_score, X, y),
-        'mahalanobis_class_distance': safe_call(compute_mahalanobis_class_distance, X, y),
+        "pca_centroid_distance": safe_call(compute_pca_centroid_score, X, y, monitor=monitor),
+        'mahalanobis_class_distance': safe_call(compute_mahalanobis_class_distance, X, y, monitor=monitor),
 
         # 3. Boundary Hardness
-        "svm_margin": safe_call(compute_linear_svm_margin, X, y),
-        "class_proba_entropy": safe_call(compute_class_proba_entropy, X, y),
+        "svm_margin": safe_call(compute_linear_svm_margin, X, y, monitor=monitor),
+        "class_proba_entropy": safe_call(compute_class_proba_entropy, X, y, monitor=monitor),
 
         # 4. Global Structure
-        "intrinsic_dimensionality": safe_call(compute_intrinsic_dimensionality, X),
-        "calinski_harabasz": safe_call(compute_calinski_harabasz_score, X, y),
+        "intrinsic_dimensionality": safe_call(compute_intrinsic_dimensionality, X, monitor=monitor),
+        "calinski_harabasz": safe_call(compute_calinski_harabasz_score, X, y, monitor=monitor),
 
         # 5. Class Distribution & Separation
-        "class_confusion_entropy": safe_call(compute_confusion_entropy, X, y),
-        "class_imbalance": safe_call(compute_class_imbalance, y),
+        "class_confusion_entropy": safe_call(compute_confusion_entropy, X, y, monitor=monitor),
+        "class_imbalance": safe_call(compute_class_imbalance, y, monitor=monitor)
     }
 
     return results
@@ -379,8 +379,10 @@ if __name__ == "__main__":
 
     TARGET_COL = 'label'
     BASE_FOLDER = '2025-11-17/Output_Zip_v4_Complexity'
-    SEEDS = ['17']
-    SAMPLE_FRACS = ['05']#, 0.05, 0.10, 0.25, 0.50, 1.00]
+
+    DRY_RUN = True
+    SEEDS = ['17'] if DRY_RUN else ['17', '23', '37', '53', '89']
+    SAMPLE_FRACS = ['05'] if DRY_RUN else ['05', '10', '20', 'full']
     SKIP_IF_EXISTS = False
 
     ds_folders = sorted(
@@ -389,19 +391,19 @@ if __name__ == "__main__":
     )
 
     monitor = ResourceMonitor(interval=0.1)
-    
+
     try:
-    
+
         for name in tqdm(ds_folders, desc='Dataset ', leave=False):
 
-            if '2017' not in name and 'KDD' not in name: continue
+            if DRY_RUN and '2017' not in name and 'KDD' not in name: continue
 
             for seed in tqdm(SEEDS, desc='Seed    ', leave=False):
 
                 for frac in tqdm(SAMPLE_FRACS, desc='Fraction', leave=False):
 
                     src_path = os.path.join(
-                        BASE_FOLDER, name, 'Multiclass', f'seed_{seed}', f'sampled_{frac}', f'{name}.npz'
+                        BASE_FOLDER, name, 'Multiclass', f'seed_{seed}', f'sampled_{frac}', f'{name}_X_y.npz'
                     )
 
                     abs_path = Path(src_path).resolve()
@@ -416,7 +418,7 @@ if __name__ == "__main__":
                     try:
                         # Start monitoring resources
                         monitor.start()
-                        
+
                         tqdm.write(f'[{now()}] DS: {src_path_short:<80} | PROCESSING | SEED={seed} | FRAC={frac} | SIZE={src_size:.2f}MB')
 
                         # 1. Prepare/Load
@@ -424,7 +426,7 @@ if __name__ == "__main__":
                         data = np.load(src_path)
                         X = cudf.DataFrame(data["X"])
                         y = cudf.Series(data["y"])
-                        
+
                         # X and y must have the same number of rows
                         assert X.shape[0] == y.shape[0], "Mismatch between X and y lengths"
 
@@ -436,7 +438,7 @@ if __name__ == "__main__":
                         assert np.issubdtype(y.dtype, np.integer), "y must be integer type"
 
                         # Compute metrics
-                        metrics = compute_cuml_complexity_metrics(X, y)
+                        metrics = compute_cuml_complexity_metrics(X, y, monitor=monitor)
                         metrics['errors'] = []
 
                         # Define the list of expected top-level metric keys
@@ -471,7 +473,7 @@ if __name__ == "__main__":
                                     'key': key,
                                     'message': 'metric is missing'
                                 })
-                        
+
                         # Write the profiling metrics to the output json
                         # Stop the thread, but KEEP the GPU driver alive (False)
                         metrics['execution_stats'] = monitor.stop(stop_pynvml=False)

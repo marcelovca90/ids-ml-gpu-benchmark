@@ -125,11 +125,27 @@ def preprocess_factorized(
     return X_final, y.astype(np.int32).to_numpy()
 
 
-def safe_call(func, *args, **kwargs):
+def safe_call(func, *args, monitor=None, **kwargs):
+    func_name = func.__name__
+
+    if monitor:
+        # Checkpoint BEFORE: Clears previous noise and labels the start
+        monitor.checkpoint(f"{func_name}_start")
+
     try:
-        return func(*args, **kwargs)
+        # Execute the actual metric computation
+        result = func(*args, **kwargs)
+
+        if monitor:
+            # Checkpoint AFTER: Captures the metric's specific usage
+            monitor.checkpoint(f"{func_name}_end")
+        return result
+
     except Exception as e:
-        tqdm.write(f"[{now()}] Error in {func.__name__}: {e}")
+        tqdm.write(f"[{now()}] Error in {func_name}: {e}")
+        if monitor:
+            # Captures usage up until the crash
+            monitor.checkpoint(f"{func_name}_fail")
         return {}
 
 
@@ -145,8 +161,10 @@ if __name__ == "__main__":
     TARGET_COL = 'label'
     INPUT_FOLDER = '2025-11-17/Input_Zip_v4'
     OUTPUT_FOLDER = '2025-11-17/Output_Zip_v4_Complexity'
-    SEEDS = ['17']
-    SAMPLE_FRACS = ['05']#, 0.05, 0.10, 0.25, 0.50, 1.00]
+
+    DRY_RUN = True
+    SEEDS = ['17'] if DRY_RUN else ['17', '23', '37', '53', '89']
+    SAMPLE_FRACS = ['05'] if DRY_RUN else ['05', '10', '20', 'full']
     SKIP_IF_EXISTS = False
 
     ds_folders = sorted(
@@ -156,7 +174,7 @@ if __name__ == "__main__":
 
     for name in tqdm(ds_folders, desc='Dataset ', leave=False):
 
-        if '2017' not in name and 'KDD' not in name: continue
+        if DRY_RUN and '2017' not in name and 'KDD' not in name: continue
 
         for seed in tqdm(SEEDS, desc='Seed    ', leave=False):
 
@@ -172,7 +190,7 @@ if __name__ == "__main__":
                         metadata = json.load(fp)
 
                     abs_path = Path(src_path).resolve()
-                    dst_path = Path(f"{str(abs_path).replace(INPUT_FOLDER, OUTPUT_FOLDER)}/{metadata['name']}.npz")
+                    dst_path = Path(f"{str(abs_path).replace(INPUT_FOLDER, OUTPUT_FOLDER)}/{metadata['name']}_X_y.npz")
                     src_path_short = '/'.join(str(src_path).split('/')[-4:])
                     dst_path_short = '/'.join(str(dst_path).split('/')[-5:])
                     os.makedirs(dst_path.parent, exist_ok=True)
@@ -228,7 +246,7 @@ if __name__ == "__main__":
                     #     max_total_samples=int(frac * len(df)),
                     #     min_samples_per_class=max(10, min(df[TARGET_COL].value_counts()))
                     # )
-                    
+
                     # Further preprocessing for metrics
                     X, y = df.drop(columns=[TARGET_COL]), df[TARGET_COL]
                     X, y = preprocess_factorized(X, y, reduce_dim=False)
